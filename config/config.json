@@ -1,0 +1,146 @@
+{
+  "globalSettings": {
+    "pollingIntervalMs": 1000,
+    "defaultTrackingMode": "foreground",
+    "logUsageData": true,
+    "dayBoundaryHour": 3,
+    "requireExitConfirmation": true
+  },
+  "trackedApps": [
+    {
+      "name": "OpenCode",
+      "processNames": [
+        "OpenCode"
+      ],
+      "trackingMode": "process",
+      "enabled": true,
+      "schedule": {
+        "default": {
+          "warningMilestones": [
+            {
+              "afterMinutes": 1,
+              "type": "toast",
+              "message": "You've been using OpenCode for 1 minute. This is a test!"
+            },
+            {
+              "afterMinutes": 2,
+              "type": "modal",
+              "message": "2 minutes on OpenCode! Modal warning test."
+            }
+          ],
+          "autoClose": {
+            "enabled": false,
+            "afterMinutes": 5,
+            "preCloseWarningMinutes": 1,
+            "gracefulClose": true
+          }
+        },
+        "overrides": {},
+        "specialDates": []
+      }
+    },
+    {
+      "name": "Example Game",
+      "processNames": [
+        "example_game"
+      ],
+      "trackingMode": "process",
+      "enabled": false,
+      "schedule": {
+        "default": {
+          "warningMilestones": [
+            {
+              "afterMinutes": 30,
+              "type": "toast",
+              "message": "You've been playing for 30 minutes."
+            },
+            {
+              "afterMinutes": 60,
+              "type": "toast",
+              "message": "1 hour mark reached!"
+            },
+            {
+              "afterMinutes": 90,
+              "type": "modal",
+              "message": "90 minutes - consider taking a break."
+            }
+          ],
+          "autoClose": {
+            "enabled": true,
+            "afterMinutes": 120,
+            "preCloseWarningMinutes": 5,
+            "gracefulClose": true
+          }
+        },
+        "overrides": {
+          "saturday": {
+            "warningMilestones": [
+              {
+                "afterMinutes": 60,
+                "type": "toast",
+                "message": "1 hour played - it's the weekend, but stay mindful!"
+              },
+              {
+                "afterMinutes": 120,
+                "type": "toast",
+                "message": "2 hours on a Saturday. Maybe take a break?"
+              },
+              {
+                "afterMinutes": 180,
+                "type": "modal",
+                "message": "3 hours! Time to do something else."
+              }
+            ],
+            "autoClose": {
+              "enabled": true,
+              "afterMinutes": 240,
+              "preCloseWarningMinutes": 10,
+              "gracefulClose": true
+            }
+          },
+          "sunday": {
+            "warningMilestones": [
+              {
+                "afterMinutes": 60,
+                "type": "toast",
+                "message": "1 hour played - enjoy your Sunday, but stay aware!"
+              },
+              {
+                "afterMinutes": 120,
+                "type": "modal",
+                "message": "2 hours on Sunday. Consider wrapping up."
+              }
+            ],
+            "autoClose": {
+              "enabled": true,
+              "afterMinutes": 180,
+              "preCloseWarningMinutes": 10,
+              "gracefulClose": true
+            }
+          }
+        },
+        "specialDates": [
+          {
+            "date": "2026-12-25",
+            "label": "Christmas Day",
+            "schedule": {
+              "warningMilestones": [
+                {
+                  "afterMinutes": 120,
+                  "type": "toast",
+                  "message": "Merry Christmas! 2 hours in - enjoy, but don't forget the family!"
+                }
+              ],
+              "autoClose": {
+                "enabled": false,
+                "afterMinutes": 0,
+                "preCloseWarningMinutes": null,
+                "gracefulClose": true
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

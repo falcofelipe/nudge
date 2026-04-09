@@ -1,0 +1,25 @@
+# .NET build outputs
+bin/
+obj/
+out/
+
+# IDE files
+.vs/
+*.user
+*.suo
+*.userprefs
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# Logs and state (generated at runtime)
+logs/
+**/state/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
