@@ -33,6 +33,12 @@ public class TrayIcon : IDisposable
         };
 
         _notifyIcon.DoubleClick += (s, e) => ShowStatus();
+
+        // Show a brief balloon tip so the user knows the app has started
+        _notifyIcon.BalloonTipTitle = "Nudge";
+        _notifyIcon.BalloonTipText = "Nudge is now running in the background.\nRight-click the tray icon for options.";
+        _notifyIcon.BalloonTipIcon = ToolTipIcon.Info;
+        _notifyIcon.ShowBalloonTip(3000);
     }
 
     /// <summary>

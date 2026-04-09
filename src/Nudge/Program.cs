@@ -73,11 +73,18 @@ static class Program
     }
 
     /// <summary>
-    /// Walks up from the given directory looking for a parent that contains
-    /// a "config" folder (the project root). Returns null if not found.
+    /// Resolves the base directory for config and logs.
+    /// 
+    /// Priority:
+    /// 1. NUDGE_BASE_DIR environment variable (already handled by caller).
+    /// 2. Development mode: walk up from the executable looking for a parent
+    ///    that contains both "config/" and "Nudge.sln" (the repo root).
+    /// 3. Standalone/published mode: use the directory where the .exe lives.
+    ///    This lets users place config/ next to the published executable.
     /// </summary>
     private static string? FindProjectRoot(string startDir)
     {
+        // First try development mode: look for repo root with Nudge.sln
         var dir = new DirectoryInfo(startDir);
         while (dir != null)
         {
@@ -88,6 +95,14 @@ static class Program
             }
             dir = dir.Parent;
         }
+
+        // Standalone/published mode: use the executable's own directory.
+        // For single-file apps, Environment.ProcessPath points to the actual .exe,
+        // while AppDomain.CurrentDomain.BaseDirectory may point to a temp extraction folder.
+        var exeDir = Path.GetDirectoryName(Environment.ProcessPath);
+        if (exeDir != null)
+            return exeDir;
+
         return null;
     }
 }

@@ -35,20 +35,36 @@ dotnet build
 dotnet run --project src/Nudge
 ```
 
-### Or publish a standalone executable
+### Publish as a standalone app (recommended)
+
+Run the publish script to create a self-contained single-file `.exe`:
 
 ```powershell
-dotnet publish src/Nudge -c Release -r win-x64 --self-contained -o ./publish
+.\publish.ps1
 ```
 
-Then run `./publish/Nudge.exe`.
+This creates a `publish/` folder with `Nudge.exe` and a copy of your `config/` folder. You can:
+
+1. **Double-click `Nudge.exe`** to launch -- no terminal or .NET SDK needed
+2. Move the entire `publish/` folder anywhere you like
+3. Create a Desktop shortcut to `Nudge.exe` for quick access
+4. Add a shortcut to your Startup folder (`shell:startup`) to auto-start with Windows
+
+On launch, a balloon tip will appear confirming Nudge is running in the background.
+
+You can also publish manually:
+
+```powershell
+dotnet publish src/Nudge -c Release -o ./publish
+```
 
 ### First Run
 
 On first launch, Nudge will:
-1. Create a `config/config.json` file with example configuration
-2. Appear in your system tray as an orange "N" icon
-3. Start monitoring configured apps
+1. Show a balloon notification confirming it's running in the background
+2. Create a `config/config.json` file with example configuration (if one doesn't exist)
+3. Appear in your system tray as an orange "N" icon
+4. Start monitoring configured apps
 
 The example config includes a **Notepad test** (enabled) and a disabled example game template. Open Notepad to verify warnings are working.
 
