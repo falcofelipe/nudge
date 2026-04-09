@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "watcher": {
+    "ignore": [
+      "bin/**",
+      "obj/**",
+      "publish/**",
+      "logs/**",
+      ".vs/**",
+      ".git/**"
+    ]
+  }
+}
