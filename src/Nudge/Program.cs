@@ -1,3 +1,4 @@
+using Microsoft.Toolkit.Uwp.Notifications;
 using Nudge.Config;
 using Nudge.Core;
 using Nudge.Notifications;
@@ -24,6 +25,11 @@ static class Program
                 MessageBoxIcon.Information);
             return;
         }
+
+        // Register a no-op handler for toast activation callbacks.
+        // Without this, the UWP Notifications library's default COM activation
+        // behavior can cause duplicate toasts when running as a standalone .exe.
+        ToastNotificationManagerCompat.OnActivated += _ => { };
 
         ApplicationConfiguration.Initialize();
 

@@ -208,7 +208,9 @@ public class NudgeEngine : IDisposable
 
             case "toast":
             default:
-                _toastNotifier.ShowToast($"Nudge - {app.Name}", warning.Message);
+                // Use a stable tag per app+milestone so duplicate toasts replace each other
+                _toastNotifier.ShowToast($"Nudge - {app.Name}", warning.Message,
+                    tag: $"nudge_{app.Name}_{warning.AfterMinutes}min");
                 break;
         }
 

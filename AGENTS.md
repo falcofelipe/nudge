@@ -31,18 +31,29 @@ Key namespaces: `Nudge`, `Nudge.Core`, `Nudge.Config`, `Nudge.Notifications`, `N
 
 ## Build & Run Commands
 
+**IMPORTANT - .NET SDK PATH issue**: This machine has two dotnet installs. The one in `C:\Program Files\dotnet\` is runtime-only (no SDK) and appears first in PATH, shadowing the actual SDK. The bare `dotnet` command will fail with "No .NET SDKs were found". Always use the full path to the SDK install instead:
+
 ```powershell
+# The correct dotnet executable with SDK 8.0:
+$dotnet = "C:\Users\falcof\AppData\Local\dotnet-sdk\dotnet.exe"
+
 # Build
-dotnet build
+& $dotnet build
 
 # Run in development
-dotnet run --project src/Nudge
+& $dotnet run --project src/Nudge
 
-# Publish standalone exe
+# Publish standalone exe (uses bare `dotnet` internally, so set DOTNET_ROOT first)
+$env:DOTNET_ROOT = "C:\Users\falcof\AppData\Local\dotnet-sdk"
+& $dotnet publish src/Nudge -c Release -o ./publish
+# Then copy config: Copy-Item -Recurse -Force .\config .\publish\config
+
+# Or use the publish script (same DOTNET_ROOT workaround needed):
+$env:DOTNET_ROOT = "C:\Users\falcof\AppData\Local\dotnet-sdk"
 .\publish.ps1
-# Or manually:
-dotnet publish src/Nudge -c Release -o ./publish
 ```
+
+PATH cannot be permanently fixed (company-managed machine with limited access).
 
 ## Project Conventions
 

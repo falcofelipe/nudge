@@ -17,6 +17,17 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "Publishing Nudge..." -ForegroundColor Cyan
 
+# Resolve the correct dotnet executable.
+# This machine has a runtime-only install at C:\Program Files\dotnet\ that shadows
+# the actual SDK. Prefer the SDK install if available, fall back to bare `dotnet`.
+$dotnet = "dotnet"
+$sdkPath = Join-Path $env:LOCALAPPDATA "dotnet-sdk\dotnet.exe"
+if (Test-Path $sdkPath) {
+    $dotnet = $sdkPath
+    $env:DOTNET_ROOT = Split-Path $sdkPath
+    Write-Host "Using .NET SDK at: $dotnet" -ForegroundColor DarkGray
+}
+
 # Clean previous publish output
 if (Test-Path $OutputDir) {
     Write-Host "Cleaning previous publish output..."
@@ -24,7 +35,7 @@ if (Test-Path $OutputDir) {
 }
 
 # Publish as a self-contained single-file executable
-dotnet publish src/Nudge -c Release -o $OutputDir
+& $dotnet publish src/Nudge -c Release -o $OutputDir
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Publish failed!" -ForegroundColor Red
