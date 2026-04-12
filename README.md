@@ -277,10 +277,11 @@ src/Nudge/
 
 ## Future Ideas
 
-- Settings UI (WinForms editor for config)
-- Pomodoro timer integration
-- Website/URL blocking
-- Focus mode (block all tracked apps for a period)
-- Daily/weekly usage reports
-- Auto-start with Windows
-- Tray icon color changes based on proximity to time limits
+Detailed implementation plans are in `AGENTS.md` under "Future Plans". Priority features:
+
+- **Windows auto-start** -- Registry Run key integration
+- **Weekend grouping** -- Join "saturday"/"sunday" under single "weekend" key
+- **Shared time pools** -- Multiple apps count time together
+- **Separate counters** -- Same schedule, different time counters per app
+- **Chrome tab tracking** -- Browser extension + WebSocket for tab content limits
+- Settings UI, Pomodoro timer, URL blocking, usage reports, tray icon color changes

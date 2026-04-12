@@ -115,13 +115,98 @@ There are currently no automated tests. When adding tests in the future:
 
 ## Future Plans
 
-The app is actively being expanded. Planned features include:
-- Settings UI (WinForms editor for config)
-- Pomodoro timer integration
-- Website/URL blocking
-- Focus mode (block all tracked apps for a period)
-- Daily/weekly usage reports
-- Auto-start with Windows
-- Tray icon color changes based on proximity to time limits
+The app is actively being expanded. Below are prioritized planned features with implementation notes.
+
+### Priority Order (by complexity/impact)
+
+#### 1. Windows Auto-Start
+**Complexity:** Easy | **Priority:** High
+
+Uses Windows registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+
+Implementation:
+- Add `autoStart` boolean to `GlobalSettings`
+- On app start, check if auto-start is enabled and register/unregister the registry key
+- Add tray menu option to toggle auto-start
+- Requires registry write permissions (typically available)
+
+#### 2. Weekend Grouping Config
+**Complexity:** Easy | **Priority:** High
+
+Merge `saturday` and `sunday` under a single `weekend` key.
+
+Implementation:
+- Add `"weekend"` as a special override key alongside individual day names
+- In `RuleEngine.ResolveSchedule()`, expand `"weekend"` to match both Saturday and Sunday
+- Backward compatible: existing `saturday`/`sunday` overrides still work
+- Update README.md config examples
+
+#### 3. Shared Time Pools
+**Complexity:** Medium | **Priority:** High
+
+Multiple apps share accumulated time (e.g., "Tibia game" + "Tibia wiki" count together).
+
+Implementation:
+- Add `timePoolId` (string?) to `TrackedApp`
+- Add `TimePoolTracker` class that groups `TimeTracker` states by pool ID
+- In `NudgeEngine.ProcessApp()`, use pool's combined active state instead of individual app state
+- Apps without a `timePoolId` track independently (existing behavior)
+- When any app in a pool is active, all apps in that pool count time
+
+#### 4. Multiple Apps, Same Schedule, Separate Counters
+**Complexity:** Medium | **Priority:** Medium
+
+Track multiple apps with the same warning/auto-close schedule but independent time counters.
+
+Implementation:
+- Add `scheduleGroup` (string?) to `TrackedApp`
+- Add `ScheduleGroup` class that holds shared milestone/auto-close config
+- `RuleEngine` resolves schedule from group, but time tracking remains per-app
+- Useful for tracking related apps (e.g., Steam + a game) with same limits
+
+#### 5. Chrome Tab Content Limits
+**Complexity:** Medium-Hard | **Priority:** Medium
+
+Track time spent on specific browser tab content (e.g., pages with "Tibia" in title).
+
+**Approach: Chrome Extension + Localhost WebSocket**
+
+Chrome extensions cannot be injected into running instances. Instead:
+1. A lightweight Nudge Chrome extension is installed once
+2. Extension detects active tab URL/title and matches against patterns
+3. Extension sends data to Nudge via localhost WebSocket (port 9123)
+4. Nudge's `AppMonitor` handles WebSocket messages and updates time tracking
+
+Implementation:
+- Create `BrowserTracking/` folder with extension files
+- Add `ChromeTabMonitor.cs` in `Core/` that:
+  - Listens on localhost:9123 for WebSocket connections
+  - Parses messages: `{ "url": "...", "title": "..." }`
+  - Matches against configured `browserTabPatterns`
+- Add `browserTabPatterns` array to `TrackedApp`:
+  ```json
+  {
+    "name": "Tibia Browsing",
+    "processNames": ["chrome"],
+    "browserTabPatterns": ["*Tibia*", "*tibia.com*"],
+    "trackingMode": "browser-tab"
+  }
+  ```
+- Add `trackingMode: "browser-tab"` (new mode alongside "process" and "foreground")
+- Multiple tabs matching patterns count as 1x (not per-tab)
+
+**Extension Files Needed:**
+- `manifest.json` (Manifest V3)
+- `background.js` (service worker)
+- `content.js` (injected script)
+- `popup.html/js` (optional settings UI)
+
+**Notes:**
+- User installs extension once from `BrowserTracking/` folder (Developer mode)
+- Extension runs in all Chrome tabs
+- No debug port needed -- cleaner than CDP approach
+- Consider Firefox support later (WebExtensions API is similar)
+
+---
 
 When implementing new features, consider how they fit into the existing namespace structure and event-driven architecture.
