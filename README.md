@@ -14,6 +14,7 @@ A Windows system tray app that monitors app usage, sends time-based warnings, an
 - **Hot-reload config** - Edit `config.json` and changes apply immediately, no restart needed
 - **Usage logging** - CSV logs for tracking patterns over time
 - **Exit friction** - Confirmation dialog before quitting to prevent impulsive disabling
+- **Auto-start with Windows** - Optional registry-based auto-start on login, toggleable from the tray menu
 
 ## Requirements
 
@@ -81,7 +82,8 @@ All configuration lives in `config/config.json` (relative to the executable). Yo
     "defaultTrackingMode": "foreground",
     "logUsageData": true,
     "dayBoundaryHour": 3,
-    "requireExitConfirmation": true
+    "requireExitConfirmation": true,
+    "autoStart": false
   }
 }
 ```
@@ -93,6 +95,7 @@ All configuration lives in `config/config.json` (relative to the executable). Yo
 | `logUsageData` | bool | `true` | Whether to write usage events to CSV logs |
 | `dayBoundaryHour` | int | `3` | Hour (0-23) when the tracking "day" resets. Default 3 = 3:00 AM |
 | `requireExitConfirmation` | bool | `true` | Show confirmation dialog before exiting Nudge |
+| `autoStart` | bool | `false` | Start Nudge automatically when you log in to Windows. Uses the registry Run key. Only takes effect when running as a published exe |
 
 ### Tracked Apps
 
@@ -212,6 +215,7 @@ Right-click the orange "N" tray icon for:
 - **Status** - Shows all tracked apps, their enabled state, and today's accumulated time
 - **Open Config** - Opens `config.json` in your default editor
 - **Open Config Folder** - Opens the config directory in Explorer
+- **Start with Windows** - Toggle auto-start on login (checkable; persists to config and updates the registry immediately). Only registers the registry key when running as a published exe; in dev mode it saves the preference but shows a tooltip warning
 - **Exit** - Shuts down Nudge (with confirmation dialog if enabled)
 
 Double-click the tray icon to open the status view.
@@ -245,7 +249,8 @@ src/Nudge/
 │   ├── AppMonitor.cs       # Process detection + foreground tracking (Win32)
 │   ├── TimeTracker.cs      # Per-app time accumulation + state persistence
 │   ├── RuleEngine.cs       # Schedule resolution + milestone evaluation
-│   └── AppKiller.cs        # Process termination (graceful + force)
+│   ├── AppKiller.cs        # Process termination (graceful + force)
+│   └── AutoStartManager.cs # Windows auto-start registry management
 ├── Config/
 │   ├── NudgeConfig.cs      # Root config model
 │   ├── GlobalSettings.cs   # Global settings model
@@ -279,7 +284,6 @@ src/Nudge/
 
 Detailed implementation plans are in `AGENTS.md` under "Future Plans". Priority features:
 
-- **Windows auto-start** -- Registry Run key integration
 - **Weekend grouping** -- Join "saturday"/"sunday" under single "weekend" key
 - **Shared time pools** -- Multiple apps count time together
 - **Separate counters** -- Same schedule, different time counters per app

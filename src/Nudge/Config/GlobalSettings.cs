@@ -32,4 +32,11 @@ public class GlobalSettings
     /// Adds friction against impulsive quitting.
     /// </summary>
     public bool RequireExitConfirmation { get; set; } = true;
+
+    /// <summary>
+    /// Whether Nudge should start automatically with Windows.
+    /// Uses the HKCU\Software\Microsoft\Windows\CurrentVersion\Run registry key.
+    /// Only takes effect when running as a published exe (ignored in dev mode).
+    /// </summary>
+    public bool AutoStart { get; set; } = false;
 }

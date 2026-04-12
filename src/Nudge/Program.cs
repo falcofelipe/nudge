@@ -51,6 +51,9 @@ static class Program
         using var configManager = new ConfigManager(configPath);
         configManager.Load();
 
+        // Sync auto-start registry key with config (no-op in dev mode)
+        AutoStartManager.SyncRegistryKey(configManager.Config.GlobalSettings.AutoStart);
+
         using var engine = new NudgeEngine(configManager, logDir);
 
         using var trayIcon = new TrayIcon(configManager, () => engine.GetActiveStates());

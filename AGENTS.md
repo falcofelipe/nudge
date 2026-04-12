@@ -20,7 +20,7 @@ CRITICAL: Always read `README.md` at the start of a session to understand the fu
 ```
 src/Nudge/
 ├── Program.cs              # Entry point, mutex, base dir resolution, wires components
-├── Core/                   # Engine, monitoring, time tracking, rules, app killing
+├── Core/                   # Engine, monitoring, time tracking, rules, app killing, auto-start
 ├── Config/                 # JSON config models + hot-reload ConfigManager
 ├── Notifications/          # Toast (UWP toolkit) + Modal (Win32 topmost dialog)
 ├── UI/                     # System tray icon + context menu
@@ -136,7 +136,7 @@ The app is actively being expanded. Below are prioritized planned features with 
 ### Priority Order
 
 #### 1. Windows Auto-Start
-**Complexity:** Easy | **Priority:** High | **Status:** Planned
+**Complexity:** Easy | **Priority:** High | **Status:** Done
 
 Uses Windows registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
 

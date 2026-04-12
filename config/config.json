@@ -4,7 +4,8 @@
     "defaultTrackingMode": "foreground",
     "logUsageData": true,
     "dayBoundaryHour": 3,
-    "requireExitConfirmation": true
+    "requireExitConfirmation": true,
+    "autoStart": true
   },
   "trackedApps": [
     {
@@ -20,7 +21,7 @@
             {
               "afterMinutes": 1,
               "type": "toast",
-              "message": "You've been using OpenCode for 1 minute. This is a test!"
+              "message": "You\u0027ve been using OpenCode for 1 minute. This is a test!"
             },
             {
               "afterMinutes": 2,
@@ -52,7 +53,7 @@
             {
               "afterMinutes": 30,
               "type": "toast",
-              "message": "You've been playing for 30 minutes."
+              "message": "You\u0027ve been playing for 30 minutes."
             },
             {
               "afterMinutes": 60,
@@ -78,7 +79,7 @@
               {
                 "afterMinutes": 60,
                 "type": "toast",
-                "message": "1 hour played - it's the weekend, but stay mindful!"
+                "message": "1 hour played - it\u0027s the weekend, but stay mindful!"
               },
               {
                 "afterMinutes": 120,
@@ -128,13 +129,12 @@
                 {
                   "afterMinutes": 120,
                   "type": "toast",
-                  "message": "Merry Christmas! 2 hours in - enjoy, but don't forget the family!"
+                  "message": "Merry Christmas! 2 hours in - enjoy, but don\u0027t forget the family!"
                 }
               ],
               "autoClose": {
                 "enabled": false,
                 "afterMinutes": 0,
-                "preCloseWarningMinutes": null,
                 "gracefulClose": true
               }
             }

@@ -71,11 +71,38 @@ public class TrayIcon : IDisposable
         var statusItem = new ToolStripMenuItem("Status", null, (s, e) => ShowStatus());
         var configItem = new ToolStripMenuItem("Open Config", null, (s, e) => OpenConfig());
         var configFolderItem = new ToolStripMenuItem("Open Config Folder", null, (s, e) => OpenConfigFolder());
+
+        var autoStartItem = new ToolStripMenuItem("Start with Windows")
+        {
+            CheckOnClick = true,
+            Checked = _configManager.Config.GlobalSettings.AutoStart
+        };
+        autoStartItem.CheckedChanged += (s, e) => HandleAutoStartToggle(autoStartItem);
+
         var separator = new ToolStripSeparator();
         var exitItem = new ToolStripMenuItem("Exit", null, (s, e) => HandleExit());
 
-        menu.Items.AddRange(new ToolStripItem[] { statusItem, configItem, configFolderItem, separator, exitItem });
+        menu.Items.AddRange(new ToolStripItem[]
+        {
+            statusItem, configItem, configFolderItem, autoStartItem, separator, exitItem
+        });
         return menu;
+    }
+
+    private void HandleAutoStartToggle(ToolStripMenuItem menuItem)
+    {
+        var enabled = menuItem.Checked;
+        _configManager.Config.GlobalSettings.AutoStart = enabled;
+        _configManager.Save();
+        AutoStartManager.SyncRegistryKey(enabled);
+
+        if (enabled && !AutoStartManager.IsPublishedExe)
+        {
+            _notifyIcon.BalloonTipTitle = "Nudge";
+            _notifyIcon.BalloonTipText = "Auto-start is saved in config but won't register until running as a published exe.";
+            _notifyIcon.BalloonTipIcon = ToolTipIcon.Warning;
+            _notifyIcon.ShowBalloonTip(3000);
+        }
     }
 
     private void ShowStatus()
