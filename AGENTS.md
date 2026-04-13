@@ -154,7 +154,7 @@ Implementation:
 Files to modify: `GlobalSettings.cs`, `Program.cs`, `TrayIcon.cs`, `README.md`
 
 #### 2. Weekend Grouping Config
-**Complexity:** Easy | **Priority:** High | **Status:** Planned
+**Complexity:** Easy | **Priority:** High | **Status:** Done
 
 Allow `"weekend"` as a schedule override key that applies to both Saturday and Sunday.
 

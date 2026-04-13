@@ -131,11 +131,12 @@ For example: `factorio.exe` -> use `"factorio"`.
 
 ### Schedule Configuration
 
-Each app has a schedule with three layers (highest priority first):
+Each app has a schedule with four layers (highest priority first):
 
 1. **Special dates** - Specific dates like holidays
-2. **Day-of-week overrides** - Per-day rules (e.g., relaxed weekend limits)
-3. **Default** - Used when no override matches
+2. **Day-of-week overrides** - Per-day rules (e.g., `"friday"`)
+3. **Weekend grouping** - A `"weekend"` key that applies to both Saturday and Sunday
+4. **Default** - Used when no override matches
 
 ```json
 {
@@ -154,8 +155,11 @@ Each app has a schedule with three layers (highest priority first):
       }
     },
     "overrides": {
-      "saturday": {
-        "warningMilestones": [ ... ],
+      "weekend": {
+        "warningMilestones": [
+          { "afterMinutes": 60, "type": "toast", "message": "1 hour on the weekend" },
+          { "afterMinutes": 120, "type": "modal", "message": "2 hours - enjoy but stay aware!" }
+        ],
         "autoClose": { "enabled": false }
       }
     },
@@ -195,6 +199,8 @@ Each milestone fires **once per tracking day**. They reset at the configured day
 #### Day-of-Week Overrides
 
 Use lowercase day names as keys: `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`, `sunday`.
+
+You can also use `"weekend"` as a convenience key that applies to both Saturday and Sunday. If you define both `"weekend"` and an individual day (e.g., `"saturday"`), the individual day takes precedence.
 
 Override schedules are **merged** with the default:
 - If the override specifies `warningMilestones`, those replace the default milestones

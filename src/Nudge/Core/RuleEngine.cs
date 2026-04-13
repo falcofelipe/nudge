@@ -10,8 +10,8 @@ public class RuleEngine
 {
     /// <summary>
     /// Resolves which DaySchedule applies for a given app right now,
-    /// considering special dates and day-of-week overrides.
-    /// Priority: SpecialDate > DayOfWeek override > Default.
+    /// considering special dates, day-of-week overrides, and weekend grouping.
+    /// Priority: SpecialDate > DayOfWeek override > "weekend" override > Default.
     /// </summary>
     public DaySchedule ResolveSchedule(TrackedApp app, DateTime now, int dayBoundaryHour)
     {
@@ -37,6 +37,13 @@ public class RuleEngine
         if (schedule.Overrides.TryGetValue(dayName, out var dayOverride))
         {
             return MergeWithDefault(schedule.Default, dayOverride);
+        }
+
+        // Check "weekend" group override (applies to Saturday and Sunday)
+        if (dayName is "saturday" or "sunday"
+            && schedule.Overrides.TryGetValue("weekend", out var weekendOverride))
+        {
+            return MergeWithDefault(schedule.Default, weekendOverride);
         }
 
         // Fall back to default
