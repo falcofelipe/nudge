@@ -290,8 +290,8 @@ src/Nudge/
 
 Detailed implementation plans are in `AGENTS.md` under "Future Plans". Priority features:
 
-- **Weekend grouping** -- Join "saturday"/"sunday" under single "weekend" key
-- **Shared time pools** -- Multiple apps count time together
-- **Separate counters** -- Same schedule, different time counters per app
-- **Chrome tab tracking** -- Browser extension + WebSocket for tab content limits
-- Settings UI, Pomodoro timer, URL blocking, usage reports, tray icon color changes
+- **Multi-source app tracking** -- A single tracked app monitors multiple processes/sources, sharing one timer and schedule
+- **Chrome tab tracking** -- Browser extension + WebSocket for tracking time on specific browser tab content
+- **Post-limit recurring warnings** -- Modal warnings repeat every N minutes after all milestones fire (when auto-close is off)
+- **Weekly bonus time** -- A shared weekly pool of extra minutes the user can consciously spend to extend time limits
+- **Settings UI** -- WinForms settings window to replace manual JSON editing, with "copy schedule" between apps

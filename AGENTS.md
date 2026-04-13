@@ -264,35 +264,189 @@ Files to modify: `AppSource.cs` (add TabPatterns), `GlobalSettings.cs` (add Brow
 - Feature 3 (multi-source tracking) must be implemented first as this builds on it
 - Consider Firefox support later (WebExtensions API is similar)
 
-#### 5. Schedule Groups (Config Convenience)
-**Complexity:** Easy-Medium | **Priority:** Low | **Status:** Planned
+#### 5. Post-Limit Recurring Warnings
+**Complexity:** Easy | **Priority:** High | **Status:** Planned
 
-Define a named schedule once and reference it from multiple tracked apps. This is purely a config DRY convenience -- it doesn't change runtime behavior. Each app still tracks time independently.
+When auto-close is disabled and all warning milestones have fired, re-fire the last milestone's warning as a modal every N minutes until the user closes the app. Currently, once the last milestone fires, nothing else happens -- the user can keep using the app indefinitely with no further nudges.
 
-Config design:
+Config -- add `postLimitRepeatIntervalMinutes` to `DaySchedule`:
 ```json
 {
-  "scheduleGroups": {
-    "gaming": {
-      "default": { "warningMilestones": [...], "autoClose": { ... } },
-      "overrides": { "weekend": { ... } }
+  "schedule": {
+    "default": {
+      "warningMilestones": [
+        { "afterMinutes": 30, "type": "toast", "message": "30 minutes played" },
+        { "afterMinutes": 60, "type": "modal", "message": "1 hour - time to stop!" }
+      ],
+      "postLimitRepeatIntervalMinutes": 5
     }
-  },
-  "trackedApps": [
-    { "name": "Game A", "processNames": ["game_a"], "scheduleGroup": "gaming" },
-    { "name": "Game B", "processNames": ["game_b"], "scheduleGroup": "gaming" }
-  ]
+  }
 }
 ```
 
-Implementation:
-- Add `ScheduleGroups` to `NudgeConfig`: `public Dictionary<string, AppSchedule>? ScheduleGroups { get; set; }`
-- Add `ScheduleGroup` to `TrackedApp`: `public string? ScheduleGroup { get; set; }`
-- In `RuleEngine.ResolveSchedule()`, if `app.ScheduleGroup` is set, look up the schedule from `config.ScheduleGroups` instead of `app.Schedule`
-- If `app.ScheduleGroup` is set but `app.Schedule` also has values, the group takes precedence (or error/warn)
-- `RuleEngine.ResolveSchedule()` needs access to the config's schedule groups -- pass them as a parameter or restructure slightly
+Behavior:
+- Only activates when ALL of: (a) all milestones have been fired, (b) auto-close is disabled or not configured, (c) `postLimitRepeatIntervalMinutes` is set and > 0
+- Re-fires the **last milestone's warning** (by `AfterMinutes` order) as a **modal** every `postLimitRepeatIntervalMinutes` minutes, regardless of the original milestone's `type`
+- The message is the last milestone's message -- no separate message config needed
+- If auto-close IS enabled, this setting is ignored (the app will be killed, so recurring warnings are pointless)
 
-Files to modify: `NudgeConfig.cs`, `TrackedApp.cs`, `RuleEngine.cs`, `NudgeEngine.cs`, `README.md`
+Implementation:
+- Add `PostLimitRepeatIntervalMinutes` property to `DaySchedule`: `public int? PostLimitRepeatIntervalMinutes { get; set; }`
+- Add `LastPostLimitWarningMinutes` to `AppTimeState` (in `TimeTracker.cs`): `public double? LastPostLimitWarningMinutes { get; set; }` -- tracks accumulated time when the last nag was shown
+- Reset `LastPostLimitWarningMinutes` on day boundary reset (same as other state fields)
+- In `RuleEngine`, add a new method:
+  ```csharp
+  public bool ShouldFirePostLimitWarning(
+      DaySchedule schedule, double accumulatedMinutes,
+      HashSet<int> firedMilestoneMinutes, double? lastPostLimitWarningMinutes)
+  ```
+  Returns true when: all milestones are fired, auto-close is disabled/null, `postLimitRepeatIntervalMinutes > 0`, and `accumulatedMinutes >= (lastPostLimitWarningMinutes ?? lastMilestoneMinutes) + interval`
+- In `NudgeEngine.ProcessApp()`, after the milestone check block, add a post-limit check:
+  - Call `RuleEngine.ShouldFirePostLimitWarning()`
+  - If true, fire a modal warning using the last milestone's message, update `LastPostLimitWarningMinutes` to current `accumulatedMinutes`
+- `MergeWithDefault` in `RuleEngine` should also merge `PostLimitRepeatIntervalMinutes` (override wins if set, otherwise inherit default)
+
+Files to modify: `DaySchedule.cs`, `TimeTracker.cs` (AppTimeState), `RuleEngine.cs`, `NudgeEngine.cs`, `README.md`
+
+#### 6. Weekly Bonus Time
+**Complexity:** Medium | **Priority:** Medium | **Status:** Planned
+
+A configurable weekly pool of extra minutes that the user can "spend" to extend their time limit on any app. Designed as a controlled pressure-release valve -- rather than just closing the app and reopening it, the user gets a limited, conscious choice to continue.
+
+**Use case:** You've used 60 minutes of Factorio (your daily limit), the final modal warning fires. Instead of dismissing it and feeling guilty, you click "Use 15min bonus" and get a legitimate 15-minute extension. You have 30 minutes of bonus per week across all apps, so you use it deliberately.
+
+Config -- add `bonusTime` to `globalSettings`:
+```json
+{
+  "globalSettings": {
+    "bonusTime": {
+      "weeklyMinutes": 30,
+      "incrementMinutes": 15
+    }
+  }
+}
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `weeklyMinutes` | int | `30` | Total bonus minutes available per week, shared across all apps |
+| `incrementMinutes` | int | `15` | How many minutes are spent per use (each button click) |
+
+Behavior:
+- The weekly bonus pool is **shared across all tracked apps** -- using 15 minutes on Factorio leaves 15 for everything else
+- Bonus time is offered via the **modal warning UI** -- a "Use Xmin bonus (Y remaining)" button appears alongside "I understand"
+- Spending bonus time **adds an offset** to the app's time state, effectively pushing future milestones and auto-close forward by `incrementMinutes`
+- Already-fired milestones are NOT re-evaluated or un-fired -- bonus time only delays future thresholds
+- If the remaining weekly pool is less than `incrementMinutes`, the button is disabled/hidden
+- The weekly pool resets every Monday at the configured `dayBoundaryHour` (or configurable reset day)
+- Bonus time persists across app restarts via state file
+- Bonus can be used multiple times on the same modal (or successive modals) until the weekly pool is depleted
+- Also integrates with the post-limit recurring warnings (Feature 5) -- each nag modal also offers the bonus button
+
+State tracking:
+- Add `BonusTimeState` to state persistence (in `tracking_state.json` or a separate `bonus_state.json`):
+  ```csharp
+  public class BonusTimeState
+  {
+      public double UsedMinutes { get; set; }
+      public string WeekStartDate { get; set; } = string.Empty; // yyyy-MM-dd of the Monday
+  }
+  ```
+- On each engine tick (or on bonus use), check if `WeekStartDate` is still the current week. If not, reset `UsedMinutes` to 0.
+- Per-app bonus offset: add `BonusMinutesApplied` to `AppTimeState` -- tracks how many bonus minutes have been applied to this app today. Resets with the daily state.
+
+Implementation:
+- Add `Config/BonusTimeConfig.cs`:
+  ```csharp
+  public class BonusTimeConfig
+  {
+      public int WeeklyMinutes { get; set; } = 30;
+      public int IncrementMinutes { get; set; } = 15;
+  }
+  ```
+- Add `BonusTime` property to `GlobalSettings`: `public BonusTimeConfig? BonusTime { get; set; }`
+- Add `BonusMinutesApplied` to `AppTimeState` (default 0, resets daily)
+- Add `BonusTimeState` tracking to `TimeTracker` (weekly state, persisted)
+- Modify `RuleEngine` methods to factor in bonus offset:
+  - `GetPendingWarnings`: compare `accumulatedMinutes` against `milestone.AfterMinutes + bonusMinutesApplied`
+  - `ShouldAutoClose`: compare against `autoClose.AfterMinutes + bonusMinutesApplied`
+  - `ShouldSendPreCloseWarning`: same offset adjustment
+  - `ShouldFirePostLimitWarning`: same offset adjustment
+- Modify `ModalWarning.ShowWarning()` to accept bonus time parameters and show a "Use Xmin bonus" button:
+  - Add parameters: `bonusAvailable` (bool), `bonusIncrementMinutes` (int), `bonusRemainingMinutes` (double)
+  - Add a second button: "Use {increment}min bonus ({remaining}min left this week)"
+  - Return a result indicating whether the user clicked "I understand" or "Use bonus"
+  - Since the modal runs on a background thread, use a callback or `Task<ModalResult>` pattern to communicate the choice back to the engine
+- Modify `NudgeEngine.ProcessApp()`:
+  - When firing a modal warning, pass bonus availability info
+  - If the user chooses bonus: call `TimeTracker.ApplyBonus()` which increments `BonusMinutesApplied` for the app and `UsedMinutes` in the global `BonusTimeState`
+- Modify tray icon status to show remaining weekly bonus
+
+Files to create: `Config/BonusTimeConfig.cs`
+Files to modify: `GlobalSettings.cs`, `TimeTracker.cs`, `RuleEngine.cs`, `NudgeEngine.cs`, `ModalWarning.cs`, `TrayIcon.cs`, `README.md`
+
+**Dependencies:** Should be implemented after Feature 5 (post-limit warnings) so the bonus button can appear on nag modals too.
+
+#### 7. Settings UI
+**Complexity:** Hard | **Priority:** Low | **Status:** Planned
+
+A WinForms settings window accessible from the tray menu that replaces manual JSON editing. Should look and feel like classic Windows settings dialogs -- functional, no-frills forms with tabs and standard controls.
+
+**This feature replaces the previously planned "Schedule Groups" feature.** The original idea of defining named schedules in JSON and referencing them by key is unnecessary when a UI provides a "Copy schedule from..." button that duplicates values inline. This is simpler for users and avoids indirection in the config.
+
+**Prerequisite:** Implement after Features 3-6 are done so the config shape is stable. Building the UI before multi-source tracking, browser tabs, and bonus time are implemented means rework every time a new config field is added.
+
+UI structure -- tabbed WinForms dialog:
+```
+[Global Settings] [Tracked Apps] [About]
+```
+
+**Global Settings tab:**
+- Polling interval (numeric input)
+- Default tracking mode (dropdown: process/foreground)
+- Day boundary hour (numeric input 0-23)
+- Log usage data (checkbox)
+- Exit confirmation (checkbox)
+- Auto-start with Windows (checkbox)
+- Bonus time settings: weekly minutes, increment minutes (numeric inputs)
+- Browser monitor port (numeric input, from Feature 4)
+
+**Tracked Apps tab:**
+- Left panel: list of tracked apps with add/remove buttons
+- Right panel: edit form for the selected app
+  - Name (text input)
+  - Process names (editable list)
+  - Sources (editable list with process name + tracking mode + optional tab patterns, from Feature 3/4)
+  - Tracking mode (dropdown)
+  - Enabled (checkbox)
+  - Schedule section:
+    - Default day schedule: warning milestones (data grid) + auto-close settings + post-limit repeat interval
+    - Overrides: add/edit day-of-week or "weekend" overrides
+    - Special dates: add/edit date overrides
+  - **"Copy schedule from..."** button: dropdown listing other tracked apps, copies the selected app's entire schedule (default + overrides + special dates) into the current app's config. Replaces the Schedule Groups concept with a simpler one-time action.
+
+**About tab:**
+- App version, links, basic info
+
+Implementation:
+- Create `UI/SettingsForm.cs` -- main tabbed form, 800x600 or resizable
+- Create `UI/GlobalSettingsPanel.cs` -- user control for global settings tab
+- Create `UI/TrackedAppsPanel.cs` -- user control for tracked apps tab, master-detail layout
+- Create `UI/ScheduleEditor.cs` -- reusable user control for editing a DaySchedule (milestones grid + auto-close fields)
+- Wire "Settings..." menu item in `TrayIcon.CreateContextMenu()` to open the form
+- On save: serialize the form state back to the config models, call `ConfigManager.Save()`
+- On open: populate from current `ConfigManager.Config`
+- Handle concurrent edits: if `FileSystemWatcher` fires while the settings form is open, prompt the user to reload or keep their changes
+- Use standard WinForms controls: `TabControl`, `DataGridView` for milestones, `NumericUpDown` for numbers, `ComboBox` for dropdowns, `CheckBox` for booleans, `ListBox` for app list
+- No third-party UI libraries -- keep it stock WinForms
+
+Files to create: `UI/SettingsForm.cs`, `UI/GlobalSettingsPanel.cs`, `UI/TrackedAppsPanel.cs`, `UI/ScheduleEditor.cs`
+Files to modify: `TrayIcon.cs`, `README.md`
+
+**Notes:**
+- This supersedes Feature 5 (Schedule Groups). The "Copy schedule from..." button achieves the same DRY goal with less config complexity.
+- The form should work with the current JSON config format -- no config model changes needed for the UI itself (it reads/writes the existing models).
+- Consider keyboard shortcuts and tab order for accessibility.
 
 ---
 
