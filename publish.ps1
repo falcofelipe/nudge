@@ -42,12 +42,14 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Copy the config folder next to the .exe so it works out of the box
-$configSource = ".\config"
+# Copy the example config next to the .exe so it works out of the box.
+# On first launch, Nudge will copy config.example.json to config.json automatically.
+$configSource = ".\config\config.example.json"
 $configDest = Join-Path $OutputDir "config"
 if (Test-Path $configSource) {
-    Write-Host "Copying config folder..."
-    Copy-Item -Recurse -Force $configSource $configDest
+    Write-Host "Copying example config..."
+    New-Item -ItemType Directory -Force -Path $configDest | Out-Null
+    Copy-Item -Force $configSource $configDest
 }
 
 Write-Host ""

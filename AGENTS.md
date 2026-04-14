@@ -108,7 +108,8 @@ Rules:
 
 ## File Organization
 
-- `config/config.json` -- Runtime configuration (tracked apps, schedules, global settings)
+- `config/config.example.json` -- Example/template configuration (tracked in git)
+- `config/config.json` -- Runtime configuration (gitignored, created from example on first run)
 - `logs/` -- CSV usage logs (gitignored, generated at runtime)
 - `logs/state/` -- Persistent tracking state (gitignored)
 - `publish/` -- Build output for standalone exe

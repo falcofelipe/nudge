@@ -40,12 +40,20 @@ static class Program
             ?? FindProjectRoot(AppDomain.CurrentDomain.BaseDirectory)
             ?? AppDomain.CurrentDomain.BaseDirectory;
 
-        var configPath = Path.Combine(baseDir, "config", "config.json");
+        var configDir = Path.Combine(baseDir, "config");
+        var configPath = Path.Combine(configDir, "config.json");
+        var exampleConfigPath = Path.Combine(configDir, "config.example.json");
         var logDir = Path.Combine(baseDir, "logs");
 
         // Ensure directories exist
-        Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
+        Directory.CreateDirectory(configDir);
         Directory.CreateDirectory(logDir);
+
+        // If config.json doesn't exist but the example does, copy it as a starting point
+        if (!File.Exists(configPath) && File.Exists(exampleConfigPath))
+        {
+            File.Copy(exampleConfigPath, configPath);
+        }
 
         // Initialize components
         using var configManager = new ConfigManager(configPath);

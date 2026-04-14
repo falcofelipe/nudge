@@ -46,7 +46,7 @@ Run the publish script to create a self-contained single-file `.exe`:
 .\publish.ps1
 ```
 
-This creates a `publish/` folder with `Nudge.exe` and a copy of your `config/` folder. You can:
+This creates a `publish/` folder with `Nudge.exe` and `config/config.example.json`. On first launch, the example is copied to `config.json` for you. You can:
 
 1. **Double-click `Nudge.exe`** to launch -- no terminal or .NET SDK needed
 2. Move the entire `publish/` folder anywhere you like
@@ -64,16 +64,18 @@ dotnet publish src/Nudge -c Release -o ./publish
 ### First Run
 
 On first launch, Nudge will:
-1. Show a balloon notification confirming it's running in the background
-2. Create a `config/config.json` file with example configuration (if one doesn't exist)
+1. Copy `config/config.example.json` to `config/config.json` if no config exists yet
+2. Show a balloon notification confirming it's running in the background
 3. Appear in your system tray as an orange "N" icon
 4. Start monitoring configured apps
 
-The example config includes a **Notepad test** (enabled) and a disabled example game template. Open Notepad to verify warnings are working.
+Your `config/config.json` is gitignored so it won't be overwritten by pulls. To pick up new example config changes after updating, compare your config against `config.example.json` manually.
+
+The example config includes a disabled example game template you can use as a starting point.
 
 ## Configuration
 
-All configuration lives in `config/config.json` (relative to the executable). You can open it directly from the tray icon's right-click menu.
+All configuration lives in `config/config.json` (relative to the executable), which is gitignored so each environment can have its own config. On first run, it is created by copying `config/config.example.json`. You can open it directly from the tray icon's right-click menu.
 
 ### Global Settings
 

@@ -19,6 +19,9 @@ out/
 logs/
 **/state/
 
+# Runtime config (user-specific, created from config.example.json on first run)
+config/config.json
+
 # OS files
 Thumbs.db
 Desktop.ini
