@@ -10,10 +10,11 @@
   "trackedApps": [
     {
       "name": "OpenCode",
-      "processNames": [
-        "OpenCode"
+      "processNames": [],
+      "sources": [
+        { "processName": "OpenCode", "trackingMode": "foreground" },
+        { "processName": "chrome", "trackingMode": "foreground" }
       ],
-      "trackingMode": "process",
       "enabled": true,
       "schedule": {
         "default": {

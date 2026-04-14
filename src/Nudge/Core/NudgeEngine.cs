@@ -23,8 +23,11 @@ public class NudgeEngine : IDisposable
     private System.Threading.Timer? _pollTimer;
     private bool _disposed;
 
-    // Track running processes across ticks to detect start/stop
+    // Track running processes across ticks to detect start/stop (legacy single-source path)
     private readonly Dictionary<string, Process?> _trackedProcesses = new();
+
+    // Track whether any source was active last tick (multi-source path)
+    private readonly Dictionary<string, bool> _multiSourceWasActive = new();
 
     /// <summary>
     /// Provides current app time states for the tray icon status display.
@@ -116,6 +119,22 @@ public class NudgeEngine : IDisposable
     private void ProcessApp(TrackedApp app, DateTime now, GlobalSettings globalSettings,
         ref string? currentActiveApp, ref double? currentActiveMinutes)
     {
+        if (app.HasSources)
+        {
+            ProcessMultiSourceApp(app, now, globalSettings, ref currentActiveApp, ref currentActiveMinutes);
+        }
+        else
+        {
+            ProcessLegacyApp(app, now, globalSettings, ref currentActiveApp, ref currentActiveMinutes);
+        }
+    }
+
+    /// <summary>
+    /// Processes an app using the legacy single-source path (processNames + trackingMode).
+    /// </summary>
+    private void ProcessLegacyApp(TrackedApp app, DateTime now, GlobalSettings globalSettings,
+        ref string? currentActiveApp, ref double? currentActiveMinutes)
+    {
         // Find the running process
         var process = _appMonitor.FindRunningProcess(app.ProcessNames);
         var isActive = _appMonitor.IsAppActive(app, process);
@@ -192,6 +211,85 @@ public class NudgeEngine : IDisposable
             previousProcess.Dispose();
         }
         _trackedProcesses[app.Name] = process;
+    }
+
+    /// <summary>
+    /// Processes an app using the multi-source path. The app is active if ANY source is active.
+    /// Time accumulates once per tick regardless of how many sources are active simultaneously.
+    /// </summary>
+    private void ProcessMultiSourceApp(TrackedApp app, DateTime now, GlobalSettings globalSettings,
+        ref string? currentActiveApp, ref double? currentActiveMinutes)
+    {
+        var isActive = _appMonitor.IsAnySourceActive(app);
+
+        var tickInterval = TimeSpan.FromMilliseconds(globalSettings.PollingIntervalMs);
+        var timeState = _timeTracker.GetState(app.Name);
+
+        // Track session lifecycle: session starts when any source activates,
+        // ends when all sources deactivate
+        var wasActive = _multiSourceWasActive.TryGetValue(app.Name, out var prev) && prev;
+        var isAnyProcessRunning = _appMonitor.IsAnySourceProcessRunning(app);
+
+        if (isActive)
+        {
+            // Log session start when transitioning from inactive to active
+            if (!wasActive || timeState.SessionStartUtc == null)
+            {
+                _usageLogger.LogEvent(app.Name, "session_start");
+            }
+
+            _timeTracker.RecordActiveTick(app.Name, tickInterval);
+            currentActiveApp = app.Name;
+            currentActiveMinutes = timeState.AccumulatedMinutes;
+
+            // Resolve the applicable schedule for today
+            var schedule = _ruleEngine.ResolveSchedule(app, now, globalSettings.DayBoundaryHour);
+
+            // Check for pending warnings
+            var pendingWarnings = _ruleEngine.GetPendingWarnings(
+                schedule, timeState.AccumulatedMinutes, timeState.FiredMilestoneMinutes);
+
+            foreach (var warning in pendingWarnings)
+            {
+                FireWarning(app, warning, timeState, schedule);
+                _timeTracker.MarkMilestoneFired(app.Name, warning.AfterMinutes);
+            }
+
+            // Check pre-close warning
+            if (_ruleEngine.ShouldSendPreCloseWarning(
+                    schedule, timeState.AccumulatedMinutes, timeState.PreCloseWarningSent))
+            {
+                var minutesLeft = _ruleEngine.GetMinutesUntilAutoClose(schedule, timeState.AccumulatedMinutes);
+                _toastNotifier.ShowPreCloseWarning(app.Name, (int)Math.Ceiling(minutesLeft ?? 0));
+                _timeTracker.MarkPreCloseWarningSent(app.Name);
+                _usageLogger.LogEvent(app.Name, "pre_close_warning",
+                    $"Minutes remaining: {minutesLeft:F1}");
+            }
+
+            // Check auto-close -- kill ALL source processes
+            if (_ruleEngine.ShouldAutoClose(schedule, timeState.AccumulatedMinutes))
+            {
+                var graceful = schedule.AutoClose?.GracefulClose ?? true;
+                _appKiller.CloseProcesses(app.GetAllProcessNames(), graceful);
+                _toastNotifier.ShowAutoCloseNotification(app.Name);
+                _usageLogger.LogEvent(app.Name, "auto_close",
+                    $"After {timeState.AccumulatedMinutes:F1} minutes");
+                _timeTracker.RecordInactiveTick(app.Name);
+            }
+        }
+        else
+        {
+            // Log session end when transitioning from active to inactive
+            if (wasActive && timeState.SessionStartUtc != null)
+            {
+                _usageLogger.LogEvent(app.Name, "session_end",
+                    $"Duration: {timeState.AccumulatedMinutes:F1} minutes");
+            }
+
+            _timeTracker.RecordInactiveTick(app.Name);
+        }
+
+        _multiSourceWasActive[app.Name] = isActive;
     }
 
     private void FireWarning(TrackedApp app, WarningMilestone warning,

@@ -6,6 +6,7 @@ A Windows system tray app that monitors app usage, sends time-based warnings, an
 
 - **Process monitoring** - Track when specific apps are running
 - **Two tracking modes** - Count time while the process is alive (`process` mode) or only when the window is focused (`foreground` mode), configurable per app
+- **Multi-source tracking** - A single tracked app can monitor multiple processes, each with its own tracking mode, sharing one timer and one set of rules
 - **Warning milestones** - Toast notifications and/or modal dialogs at configurable time thresholds
 - **Auto-close** - Automatically kill app processes after a time limit, with optional pre-close warning
 - **Per-day scheduling** - Different rules for each day of the week
@@ -117,7 +118,38 @@ Each tracked app has the following structure:
 | `processNames` | string[] | Process names to look for (without `.exe`). First match is used |
 | `trackingMode` | string | `"process"` (counts while alive) or `"foreground"` (only when focused) |
 | `enabled` | bool | Toggle tracking without removing the config entry |
+| `sources` | array/null | Optional multi-source config (see below). When present, supersedes `processNames`/`trackingMode` |
 | `schedule` | object | Warning and auto-close rules (see below) |
+
+#### Multi-Source Tracking
+
+A single tracked app can monitor **multiple processes** (sources), each with its own tracking mode. The app is "active" if **any** source is active. Time accumulates once per tick regardless of how many sources are active simultaneously (no double-counting).
+
+This is useful when one activity spans multiple programs -- for example, a game plus its wiki in a browser.
+
+```json
+{
+  "name": "Tibia",
+  "sources": [
+    { "processName": "tibia_game", "trackingMode": "process" },
+    { "processName": "chrome", "trackingMode": "foreground" }
+  ],
+  "enabled": true,
+  "schedule": { ... }
+}
+```
+
+| Source Field | Type | Default | Description |
+|-------------|------|---------|-------------|
+| `processName` | string | (required) | Process name to look for (without `.exe`) |
+| `trackingMode` | string | `"foreground"` | `"process"` or `"foreground"`, applied per-source |
+
+When `sources` is present and non-empty:
+- The `processNames` and `trackingMode` top-level fields are ignored
+- Warnings and auto-close use the app's single `name` and single schedule
+- Auto-close kills **all** source processes
+
+When `sources` is absent or empty, the app uses the legacy `processNames`/`trackingMode` fields (fully backward compatible).
 
 #### Finding Process Names
 
@@ -261,6 +293,7 @@ src/Nudge/
 │   ├── NudgeConfig.cs      # Root config model
 │   ├── GlobalSettings.cs   # Global settings model
 │   ├── TrackedApp.cs       # Per-app config model
+│   ├── AppSource.cs        # Source definition for multi-source tracking
 │   ├── AppSchedule.cs      # Schedule container (default + overrides)
 │   ├── DaySchedule.cs      # Warning milestones + auto-close for a time period
 │   ├── WarningMilestone.cs # Single warning definition
@@ -290,7 +323,6 @@ src/Nudge/
 
 Detailed implementation plans are in `AGENTS.md` under "Future Plans". Priority features:
 
-- **Multi-source app tracking** -- A single tracked app monitors multiple processes/sources, sharing one timer and schedule
 - **Chrome tab tracking** -- Browser extension + WebSocket for tracking time on specific browser tab content
 - **Post-limit recurring warnings** -- Modal warnings repeat every N minutes after all milestones fire (when auto-close is off)
 - **Weekly bonus time** -- A shared weekly pool of extra minutes the user can consciously spend to extend time limits

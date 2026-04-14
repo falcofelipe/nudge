@@ -85,4 +85,110 @@ public class AppMonitor
             _ => IsProcessInForeground(runningProcess.Id) // Default to foreground
         };
     }
+
+    /// <summary>
+    /// Checks if any source in a multi-source tracked app is currently active.
+    /// Each source is checked independently against its own tracking mode.
+    /// Returns true if at least one source is active.
+    /// </summary>
+    public bool IsAnySourceActive(TrackedApp app)
+    {
+        if (app.Sources == null || app.Sources.Count == 0)
+            return false;
+
+        foreach (var source in app.Sources)
+        {
+            if (IsSourceActive(source))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Checks whether a single source is active based on its process name and tracking mode.
+    /// </summary>
+    private bool IsSourceActive(AppSource source)
+    {
+        try
+        {
+            var processes = Process.GetProcessesByName(source.ProcessName);
+            if (processes.Length == 0)
+                return false;
+
+            try
+            {
+                var trackingMode = source.TrackingMode.ToLowerInvariant();
+
+                if (trackingMode == "process")
+                {
+                    // Process mode: active if any matching process is running
+                    return true;
+                }
+
+                // Foreground mode: active if any matching process has the foreground window
+                foreach (var process in processes)
+                {
+                    try
+                    {
+                        if (!process.HasExited && IsProcessInForeground(process.Id))
+                            return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[Nudge] Error checking foreground for source '{source.ProcessName}': {ex.Message}");
+                    }
+                }
+
+                return false;
+            }
+            finally
+            {
+                foreach (var p in processes)
+                    p.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[Nudge] Error checking source '{source.ProcessName}': {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Checks if any source in a multi-source tracked app has at least one running process.
+    /// Used for detecting whether the app has any running processes (for session lifecycle tracking).
+    /// </summary>
+    public bool IsAnySourceProcessRunning(TrackedApp app)
+    {
+        if (app.Sources == null || app.Sources.Count == 0)
+            return false;
+
+        foreach (var source in app.Sources)
+        {
+            try
+            {
+                var processes = Process.GetProcessesByName(source.ProcessName);
+                try
+                {
+                    if (processes.Length > 0)
+                        return true;
+                }
+                finally
+                {
+                    foreach (var p in processes)
+                        p.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[Nudge] Error checking source process '{source.ProcessName}': {ex.Message}");
+            }
+        }
+
+        return false;
+    }
 }

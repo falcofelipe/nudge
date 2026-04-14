@@ -29,7 +29,33 @@ public class TrackedApp
     public bool Enabled { get; set; } = true;
 
     /// <summary>
+    /// Optional list of sources (processes) that contribute to this app's activity.
+    /// When present and non-empty, supersedes <see cref="ProcessNames"/> and <see cref="TrackingMode"/>.
+    /// The app is considered active if ANY source is active. Time accumulates once per tick
+    /// regardless of how many sources are active simultaneously (no double-counting).
+    /// </summary>
+    public List<AppSource>? Sources { get; set; }
+
+    /// <summary>
     /// The full schedule configuration for this app.
     /// </summary>
     public AppSchedule Schedule { get; set; } = new();
+
+    /// <summary>
+    /// Returns true if this app uses multi-source tracking (has a non-empty Sources list).
+    /// </summary>
+    public bool HasSources => Sources is { Count: > 0 };
+
+    /// <summary>
+    /// Gets all process names across all sources, or falls back to <see cref="ProcessNames"/>.
+    /// Useful for auto-close, which needs to kill all related processes.
+    /// </summary>
+    public IEnumerable<string> GetAllProcessNames()
+    {
+        if (HasSources)
+        {
+            return Sources!.Select(s => s.ProcessName).Distinct();
+        }
+        return ProcessNames;
+    }
 }

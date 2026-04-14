@@ -21,7 +21,7 @@ CRITICAL: Always read `README.md` at the start of a session to understand the fu
 src/Nudge/
 ├── Program.cs              # Entry point, mutex, base dir resolution, wires components
 ├── Core/                   # Engine, monitoring, time tracking, rules, app killing, auto-start
-├── Config/                 # JSON config models + hot-reload ConfigManager
+├── Config/                 # JSON config models + hot-reload ConfigManager (incl. AppSource for multi-source tracking)
 ├── Notifications/          # Toast (UWP toolkit) + Modal (Win32 topmost dialog)
 ├── UI/                     # System tray icon + context menu
 └── Logging/                # CSV event logging
@@ -168,7 +168,7 @@ Implementation:
 Files to modify: `RuleEngine.cs`, `README.md`
 
 #### 3. Multi-Source App Tracking (formerly "Shared Time Pools")
-**Complexity:** Medium | **Priority:** High | **Status:** Planned
+**Complexity:** Medium | **Priority:** High | **Status:** Done
 
 A single tracked app can monitor multiple process/browser sources, each with its own tracking mode. The app is "active" if **any** source is active. A single time counter accumulates for the whole app. This is the foundation that also enables browser tab tracking (Feature 5).
 
