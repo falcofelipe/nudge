@@ -7,9 +7,21 @@ namespace Nudge.Core;
 /// <summary>
 /// Monitors running processes and foreground window state to determine
 /// which tracked apps are currently active. Uses Win32 APIs for foreground detection.
+/// Supports "browser-tab" sources via an optional ChromeTabMonitor reference.
 /// </summary>
 public class AppMonitor
 {
+    private ChromeTabMonitor? _chromeTabMonitor;
+
+    /// <summary>
+    /// Sets the ChromeTabMonitor instance used to evaluate "browser-tab" sources.
+    /// Called by NudgeEngine after constructing the monitor.
+    /// </summary>
+    public void SetChromeTabMonitor(ChromeTabMonitor? monitor)
+    {
+        _chromeTabMonitor = monitor;
+    }
+
     // Win32 P/Invoke for foreground window detection
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
@@ -107,9 +119,23 @@ public class AppMonitor
 
     /// <summary>
     /// Checks whether a single source is active based on its process name and tracking mode.
+    /// Supports "process", "foreground", and "browser-tab" modes.
     /// </summary>
     private bool IsSourceActive(AppSource source)
     {
+        var trackingMode = source.TrackingMode.ToLowerInvariant();
+
+        // Browser-tab mode: activity is determined entirely by WebSocket messages
+        // from the Chrome extension -- no process detection needed.
+        if (trackingMode == "browser-tab")
+        {
+            if (_chromeTabMonitor == null || source.TabPatterns == null || source.TabPatterns.Count == 0)
+                return false;
+
+            return _chromeTabMonitor.IsTabMatchActive(source.TabPatterns);
+        }
+
+        // Process/foreground modes: check the actual OS process
         try
         {
             var processes = Process.GetProcessesByName(source.ProcessName);
@@ -118,8 +144,6 @@ public class AppMonitor
 
             try
             {
-                var trackingMode = source.TrackingMode.ToLowerInvariant();
-
                 if (trackingMode == "process")
                 {
                     // Process mode: active if any matching process is running

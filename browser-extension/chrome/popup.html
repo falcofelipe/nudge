@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 280px;
+      padding: 16px;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      margin: 0;
+    }
+    h2 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      color: #ffb432;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot.connected { background: #4caf50; }
+    .dot.disconnected { background: #f44336; }
+    .info {
+      font-size: 12px;
+      color: #999;
+      margin-top: 12px;
+      line-height: 1.4;
+    }
+    .tab-info {
+      margin-top: 10px;
+      padding: 8px;
+      background: #2a2a2a;
+      border-radius: 4px;
+      font-size: 12px;
+      word-break: break-all;
+    }
+    .tab-info .label {
+      color: #999;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Nudge Tab Monitor</h2>
+  <div class="status">
+    <div id="statusDot" class="dot disconnected"></div>
+    <span id="statusText">Checking...</span>
+  </div>
+  <div id="tabInfo" class="tab-info" style="display: none;">
+    <div class="label">Active tab:</div>
+    <div id="tabTitle"></div>
+  </div>
+  <div class="info">
+    Connects to Nudge on localhost:9123 to report browser tab activity for time tracking.
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -19,6 +19,7 @@ public class NudgeEngine : IDisposable
     private readonly ToastNotifier _toastNotifier;
     private readonly ModalWarning _modalWarning;
     private readonly UsageLogger _usageLogger;
+    private readonly ChromeTabMonitor? _chromeTabMonitor;
 
     private System.Threading.Timer? _pollTimer;
     private bool _disposed;
@@ -64,28 +65,39 @@ public class NudgeEngine : IDisposable
         _modalWarning = new ModalWarning();
         _usageLogger = new UsageLogger(logDirectory, configManager.Config.GlobalSettings.LogUsageData);
 
+        // Initialize the Chrome tab monitor for browser-tab source tracking
+        var browserPort = configManager.Config.GlobalSettings.BrowserMonitorPort;
+        if (browserPort > 0)
+        {
+            _chromeTabMonitor = new ChromeTabMonitor(browserPort);
+            _appMonitor.SetChromeTabMonitor(_chromeTabMonitor);
+        }
+
         // Re-create timer when config changes (polling interval may have changed)
         _configManager.ConfigReloaded += OnConfigReloaded;
     }
 
     /// <summary>
-    /// Starts the monitoring loop.
+    /// Starts the monitoring loop and the Chrome tab monitor (if configured).
     /// </summary>
     public void Start()
     {
+        _chromeTabMonitor?.Start();
+
         var interval = _configManager.Config.GlobalSettings.PollingIntervalMs;
         _pollTimer = new System.Threading.Timer(OnTick, null, 0, interval);
         System.Diagnostics.Debug.WriteLine($"[Nudge] Engine started. Polling every {interval}ms.");
     }
 
     /// <summary>
-    /// Stops the monitoring loop and saves state.
+    /// Stops the monitoring loop, Chrome tab monitor, and saves state.
     /// </summary>
     public void Stop()
     {
         _pollTimer?.Change(Timeout.Infinite, Timeout.Infinite);
         _pollTimer?.Dispose();
         _pollTimer = null;
+        _chromeTabMonitor?.Stop();
         _timeTracker.ForceSave();
         System.Diagnostics.Debug.WriteLine("[Nudge] Engine stopped.");
     }
@@ -339,6 +351,8 @@ public class NudgeEngine : IDisposable
                 process?.Dispose();
             }
             _trackedProcesses.Clear();
+
+            _chromeTabMonitor?.Dispose();
 
             _disposed = true;
         }

@@ -20,11 +20,13 @@ CRITICAL: Always read `README.md` at the start of a session to understand the fu
 ```
 src/Nudge/
 ├── Program.cs              # Entry point, mutex, base dir resolution, wires components
-├── Core/                   # Engine, monitoring, time tracking, rules, app killing, auto-start
-├── Config/                 # JSON config models + hot-reload ConfigManager (incl. AppSource for multi-source tracking)
+├── Core/                   # Engine, monitoring, time tracking, rules, app killing, auto-start, browser tab monitor
+├── Config/                 # JSON config models + hot-reload ConfigManager (incl. AppSource for multi-source/browser-tab tracking)
 ├── Notifications/          # Toast (UWP toolkit) + Modal (Win32 topmost dialog)
 ├── UI/                     # System tray icon + context menu
 └── Logging/                # CSV event logging
+
+browser-extension/chrome/   # Chrome extension for browser tab tracking (WebSocket client)
 ```
 
 Key namespaces: `Nudge`, `Nudge.Core`, `Nudge.Config`, `Nudge.Notifications`, `Nudge.UI`, `Nudge.Logging`
@@ -213,7 +215,7 @@ Implementation:
 Files to modify: `TrackedApp.cs` (add Sources), new `Config/AppSource.cs`, `AppMonitor.cs`, `NudgeEngine.cs`, `README.md`
 
 #### 4. Chrome Tab Content Tracking
-**Complexity:** Medium-Hard | **Priority:** Medium | **Status:** Planned
+**Complexity:** Medium-Hard | **Priority:** Medium | **Status:** Done
 
 Track time spent on specific browser tab content (e.g., pages with "Tibia" in title). Integrates with Feature 3's `sources` array as a new tracking mode.
 

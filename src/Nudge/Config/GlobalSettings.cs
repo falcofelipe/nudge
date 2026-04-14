@@ -39,4 +39,11 @@ public class GlobalSettings
     /// Only takes effect when running as a published exe (ignored in dev mode).
     /// </summary>
     public bool AutoStart { get; set; } = false;
+
+    /// <summary>
+    /// The localhost port for the browser tab monitoring WebSocket server.
+    /// The Chrome extension connects to this port to report active tab info.
+    /// Default: 9123. Set to 0 to disable the WebSocket server.
+    /// </summary>
+    public int BrowserMonitorPort { get; set; } = 9123;
 }

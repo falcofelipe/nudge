@@ -13,8 +13,16 @@ public class AppSource
     public string ProcessName { get; set; } = string.Empty;
 
     /// <summary>
-    /// How to track this source: "process" (counts while process is alive)
-    /// or "foreground" (only counts while window is in the foreground).
+    /// How to track this source: "process" (counts while process is alive),
+    /// "foreground" (only counts while window is in the foreground),
+    /// or "browser-tab" (tracks specific browser tab content via Chrome extension).
     /// </summary>
     public string TrackingMode { get; set; } = "foreground";
+
+    /// <summary>
+    /// Glob/wildcard patterns to match against browser tab titles and URLs.
+    /// Only used when TrackingMode is "browser-tab". Supports * and ? wildcards.
+    /// Example: ["*Tibia*", "*tibia.com*"]
+    /// </summary>
+    public List<string>? TabPatterns { get; set; }
 }

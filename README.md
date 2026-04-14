@@ -15,6 +15,7 @@ A Windows system tray app that monitors app usage, sends time-based warnings, an
 - **Hot-reload config** - Edit `config.json` and changes apply immediately, no restart needed
 - **Usage logging** - CSV logs for tracking patterns over time
 - **Exit friction** - Confirmation dialog before quitting to prevent impulsive disabling
+- **Browser tab tracking** - Track time on specific browser tab content (by title/URL patterns) via a Chrome extension and local WebSocket
 - **Auto-start with Windows** - Optional registry-based auto-start on login, toggleable from the tray menu
 
 ## Requirements
@@ -84,7 +85,8 @@ All configuration lives in `config/config.json` (relative to the executable). Yo
     "logUsageData": true,
     "dayBoundaryHour": 3,
     "requireExitConfirmation": true,
-    "autoStart": false
+    "autoStart": false,
+    "browserMonitorPort": 9123
   }
 }
 ```
@@ -97,6 +99,7 @@ All configuration lives in `config/config.json` (relative to the executable). Yo
 | `dayBoundaryHour` | int | `3` | Hour (0-23) when the tracking "day" resets. Default 3 = 3:00 AM |
 | `requireExitConfirmation` | bool | `true` | Show confirmation dialog before exiting Nudge |
 | `autoStart` | bool | `false` | Start Nudge automatically when you log in to Windows. Uses the registry Run key. Only takes effect when running as a published exe |
+| `browserMonitorPort` | int | `9123` | Localhost port for the Chrome extension WebSocket connection. Set to `0` to disable |
 
 ### Tracked Apps
 
@@ -141,8 +144,9 @@ This is useful when one activity spans multiple programs -- for example, a game 
 
 | Source Field | Type | Default | Description |
 |-------------|------|---------|-------------|
-| `processName` | string | (required) | Process name to look for (without `.exe`) |
-| `trackingMode` | string | `"foreground"` | `"process"` or `"foreground"`, applied per-source |
+| `processName` | string | (required) | Process name to look for (without `.exe`). For `browser-tab` mode, this is the browser process name (e.g., `"chrome"`) |
+| `trackingMode` | string | `"foreground"` | `"process"`, `"foreground"`, or `"browser-tab"` (tracks specific tab content via Chrome extension) |
+| `tabPatterns` | string[]/null | `null` | Glob patterns to match tab titles/URLs. Only used with `"browser-tab"` mode. Supports `*` and `?` wildcards |
 
 When `sources` is present and non-empty:
 - The `processNames` and `trackingMode` top-level fields are ignored
@@ -150,6 +154,32 @@ When `sources` is present and non-empty:
 - Auto-close kills **all** source processes
 
 When `sources` is absent or empty, the app uses the legacy `processNames`/`trackingMode` fields (fully backward compatible).
+
+#### Browser Tab Tracking
+
+The `"browser-tab"` tracking mode lets you track time spent on specific browser tab content. It works via a Chrome extension that connects to Nudge over a local WebSocket.
+
+```json
+{
+  "name": "Tibia",
+  "sources": [
+    { "processName": "tibia_game", "trackingMode": "process" },
+    { "processName": "chrome", "trackingMode": "browser-tab", "tabPatterns": ["*Tibia*", "*tibia.com*"] }
+  ],
+  "enabled": true,
+  "schedule": { ... }
+}
+```
+
+Tab patterns use glob-style wildcards:
+- `*` matches any number of characters
+- `?` matches a single character
+- Matching is case-insensitive
+- Both the tab **title** and **URL** are tested against each pattern
+
+Multiple tabs matching patterns count as one active source (no double-counting).
+
+**Setup:** See [Chrome Extension Setup](#chrome-extension-setup) below.
 
 #### Finding Process Names
 
@@ -277,6 +307,30 @@ Timestamp,App,Event,Details
 2026-04-08 15:30:02,Factorio,session_end,"Duration: 60.1 minutes"
 ```
 
+## Chrome Extension Setup
+
+The Chrome extension is required for `"browser-tab"` tracking mode. It monitors the active tab and reports its URL/title to Nudge via a localhost WebSocket connection.
+
+### Installation
+
+1. Open Chrome and navigate to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in the top-right corner)
+3. Click **Load unpacked**
+4. Select the `browser-extension/chrome/` folder from this repository
+5. The "Nudge Tab Monitor" extension will appear in your extensions list
+
+### How It Works
+
+- The extension connects to Nudge's WebSocket server on `localhost:9123` (configurable via `browserMonitorPort` in config)
+- When you switch tabs or navigate to a new page, the extension sends the tab's URL and title to Nudge
+- Nudge matches the tab info against your configured `tabPatterns` to determine if a `"browser-tab"` source is active
+- If Chrome loses focus, the extension reports the tab as inactive
+- The extension automatically reconnects if Nudge restarts
+
+### Status
+
+Click the extension icon in Chrome's toolbar to see the connection status and the current active tab being reported.
+
 ## Architecture
 
 ```
@@ -288,12 +342,13 @@ src/Nudge/
 │   ├── TimeTracker.cs      # Per-app time accumulation + state persistence
 │   ├── RuleEngine.cs       # Schedule resolution + milestone evaluation
 │   ├── AppKiller.cs        # Process termination (graceful + force)
-│   └── AutoStartManager.cs # Windows auto-start registry management
+│   ├── AutoStartManager.cs # Windows auto-start registry management
+│   └── ChromeTabMonitor.cs # WebSocket server for browser tab tracking
 ├── Config/
 │   ├── NudgeConfig.cs      # Root config model
 │   ├── GlobalSettings.cs   # Global settings model
 │   ├── TrackedApp.cs       # Per-app config model
-│   ├── AppSource.cs        # Source definition for multi-source tracking
+│   ├── AppSource.cs        # Source definition for multi-source tracking (incl. browser-tab)
 │   ├── AppSchedule.cs      # Schedule container (default + overrides)
 │   ├── DaySchedule.cs      # Warning milestones + auto-close for a time period
 │   ├── WarningMilestone.cs # Single warning definition
@@ -307,6 +362,12 @@ src/Nudge/
 │   └── TrayIcon.cs         # System tray icon + context menu
 └── Logging/
     └── UsageLogger.cs      # CSV event logging
+
+browser-extension/chrome/   # Chrome extension for browser tab tracking
+├── manifest.json           # Manifest V3 extension config
+├── background.js           # Service worker: tab monitoring + WebSocket client
+├── popup.html              # Extension popup UI
+└── popup.js                # Popup connection status logic
 ```
 
 ### Key Design Decisions
@@ -323,7 +384,6 @@ src/Nudge/
 
 Detailed implementation plans are in `AGENTS.md` under "Future Plans". Priority features:
 
-- **Chrome tab tracking** -- Browser extension + WebSocket for tracking time on specific browser tab content
 - **Post-limit recurring warnings** -- Modal warnings repeat every N minutes after all milestones fire (when auto-close is off)
 - **Weekly bonus time** -- A shared weekly pool of extra minutes the user can consciously spend to extend time limits
 - **Settings UI** -- WinForms settings window to replace manual JSON editing, with "copy schedule" between apps
