@@ -154,12 +154,28 @@ public class ChromeTabMonitor : IDisposable
                 }
                 else
                 {
-                    // Not a WebSocket request -- return a simple status response
-                    context.Response.StatusCode = 200;
-                    context.Response.ContentType = "text/plain";
-                    var body = Encoding.UTF8.GetBytes("Nudge ChromeTabMonitor active");
-                    await context.Response.OutputStream.WriteAsync(body, ct).ConfigureAwait(false);
-                    context.Response.Close();
+                    // Add CORS headers so the Chrome extension popup can fetch this endpoint.
+                    // The popup runs in a chrome-extension:// origin, which is cross-origin
+                    // relative to localhost.
+                    context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
+                    context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS");
+                    context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
+
+                    if (context.Request.HttpMethod == "OPTIONS")
+                    {
+                        // Handle CORS preflight request
+                        context.Response.StatusCode = 204;
+                        context.Response.Close();
+                    }
+                    else
+                    {
+                        // Return a simple status response
+                        context.Response.StatusCode = 200;
+                        context.Response.ContentType = "text/plain";
+                        var body = Encoding.UTF8.GetBytes("Nudge ChromeTabMonitor active");
+                        await context.Response.OutputStream.WriteAsync(body, ct).ConfigureAwait(false);
+                        context.Response.Close();
+                    }
                 }
             }
             catch (HttpListenerException) when (ct.IsCancellationRequested)
