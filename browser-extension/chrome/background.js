@@ -9,6 +9,23 @@ let reconnectTimer = null;
 let lastSentData = null;
 let isConnected = false;
 
+// --- Badge indicator ---
+
+/**
+ * Shows or hides a colored dot badge on the extension icon to indicate
+ * whether the current active tab is being tracked by Nudge.
+ */
+function updateBadge(matched) {
+  if (matched) {
+    chrome.action.setBadgeText({ text: "●" });
+    chrome.action.setBadgeBackgroundColor({ color: "#4CAF50" });
+    chrome.action.setTitle({ title: "Nudge: tracking this tab" });
+  } else {
+    chrome.action.setBadgeText({ text: "" });
+    chrome.action.setTitle({ title: "Nudge Tab Monitor" });
+  }
+}
+
 // --- WebSocket connection management ---
 
 function connect() {
@@ -28,15 +45,19 @@ function connect() {
     };
 
     ws.onmessage = (event) => {
-      // Nudge doesn't send messages to the extension currently,
-      // but this handler is here for future use.
-      console.log("[Nudge] Received:", event.data);
+      try {
+        const data = JSON.parse(event.data);
+        updateBadge(data.matched === true);
+      } catch (err) {
+        console.log("[Nudge] Failed to parse server message:", err);
+      }
     };
 
     ws.onclose = () => {
       console.log("[Nudge] WebSocket connection closed. Reconnecting...");
       isConnected = false;
       ws = null;
+      updateBadge(false);
       scheduleReconnect();
     };
 
@@ -47,6 +68,7 @@ function connect() {
   } catch (err) {
     console.log("[Nudge] Failed to create WebSocket:", err);
     isConnected = false;
+    updateBadge(false);
     scheduleReconnect();
   }
 }
@@ -130,6 +152,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
     // Chrome lost focus entirely -- report as inactive
+    updateBadge(false);
     sendMessage({
       url: "",
       title: "",

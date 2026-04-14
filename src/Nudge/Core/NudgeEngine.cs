@@ -71,6 +71,7 @@ public class NudgeEngine : IDisposable
         {
             _chromeTabMonitor = new ChromeTabMonitor(browserPort);
             _appMonitor.SetChromeTabMonitor(_chromeTabMonitor);
+            SyncTabPatterns(configManager.Config);
         }
 
         // Re-create timer when config changes (polling interval may have changed)
@@ -336,7 +337,32 @@ public class NudgeEngine : IDisposable
         // Restart the timer with the new polling interval
         var interval = newConfig.GlobalSettings.PollingIntervalMs;
         _pollTimer?.Change(0, interval);
+
+        // Update tab patterns so the monitor can send match responses to the extension
+        SyncTabPatterns(newConfig);
+
         System.Diagnostics.Debug.WriteLine($"[Nudge] Config reloaded. Polling interval: {interval}ms.");
+    }
+
+    /// <summary>
+    /// Collects all tabPatterns from all browser-tab sources across all tracked apps
+    /// and passes them to the ChromeTabMonitor for match-response support.
+    /// </summary>
+    private void SyncTabPatterns(NudgeConfig config)
+    {
+        if (_chromeTabMonitor == null)
+            return;
+
+        var allPatterns = config.TrackedApps
+            .Where(a => a.Enabled && a.Sources != null)
+            .SelectMany(a => a.Sources!)
+            .Where(s => s.TrackingMode.Equals("browser-tab", StringComparison.OrdinalIgnoreCase)
+                        && s.TabPatterns is { Count: > 0 })
+            .SelectMany(s => s.TabPatterns!)
+            .Distinct()
+            .ToList();
+
+        _chromeTabMonitor.UpdatePatterns(allPatterns);
     }
 
     public void Dispose()

@@ -20,12 +20,20 @@ public class ChromeTabMonitor : IDisposable
     private Task? _listenTask;
     private bool _disposed;
 
-    // Lock protecting _currentTab
+    // Lock protecting _currentTab and _allPatterns
     private readonly object _tabLock = new();
 
     // The most recent tab info reported by the extension.
     // Null means no extension connected or extension reported inactive.
     private TabInfo? _currentTab;
+
+    // All tab patterns from all browser-tab sources across all tracked apps.
+    // Updated by NudgeEngine when config loads or reloads.
+    private List<string> _allPatterns = new();
+
+    // The active WebSocket connection (if any) for sending match responses.
+    private WebSocket? _activeWebSocket;
+    private readonly object _wsLock = new();
 
     // Cache of compiled regex patterns from glob strings (pattern -> regex)
     private readonly Dictionary<string, Regex> _patternCache = new();
@@ -39,6 +47,18 @@ public class ChromeTabMonitor : IDisposable
     public ChromeTabMonitor(int port)
     {
         _port = port;
+    }
+
+    /// <summary>
+    /// Updates the set of all tab patterns from config. Called by NudgeEngine
+    /// at startup and whenever the config is reloaded.
+    /// </summary>
+    public void UpdatePatterns(List<string> allPatterns)
+    {
+        lock (_tabLock)
+        {
+            _allPatterns = allPatterns;
+        }
     }
 
     /// <summary>
@@ -208,6 +228,12 @@ public class ChromeTabMonitor : IDisposable
             var wsContext = await context.AcceptWebSocketAsync(null).ConfigureAwait(false);
             ws = wsContext.WebSocket;
 
+            // Store reference so ProcessMessage can send responses
+            lock (_wsLock)
+            {
+                _activeWebSocket = ws;
+            }
+
             System.Diagnostics.Debug.WriteLine("[Nudge] Chrome extension connected via WebSocket.");
 
             var buffer = new byte[4096];
@@ -226,7 +252,7 @@ public class ChromeTabMonitor : IDisposable
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
                     var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    ProcessMessage(json);
+                    await ProcessMessageAsync(json, ws, ct).ConfigureAwait(false);
                 }
             }
         }
@@ -246,10 +272,16 @@ public class ChromeTabMonitor : IDisposable
         }
         finally
         {
-            // On disconnect, clear tab state (treat as inactive)
+            // On disconnect, clear tab state and WebSocket reference
             lock (_tabLock)
             {
                 _currentTab = null;
+            }
+
+            lock (_wsLock)
+            {
+                if (_activeWebSocket == ws)
+                    _activeWebSocket = null;
             }
 
             ws?.Dispose();
@@ -258,23 +290,38 @@ public class ChromeTabMonitor : IDisposable
     }
 
     /// <summary>
-    /// Parses an incoming JSON message from the extension and updates current tab state.
-    /// Expected format: { "url": "...", "title": "...", "active": true/false }
+    /// Parses an incoming JSON message from the extension, updates current tab state,
+    /// and sends back a { "matched": true/false } response so the extension can
+    /// show a badge indicator when the active tab is being tracked.
+    /// Expected input format: { "url": "...", "title": "...", "active": true/false }
     /// </summary>
-    private void ProcessMessage(string json)
+    private async Task ProcessMessageAsync(string json, WebSocket ws, CancellationToken ct)
     {
         try
         {
             var tabInfo = JsonSerializer.Deserialize<TabInfo>(json, JsonOptions);
-            if (tabInfo != null)
-            {
-                lock (_tabLock)
-                {
-                    _currentTab = tabInfo;
-                }
+            if (tabInfo == null)
+                return;
 
-                System.Diagnostics.Debug.WriteLine(
-                    $"[Nudge] Tab update: active={tabInfo.Active}, title=\"{tabInfo.Title}\", url=\"{tabInfo.Url}\"");
+            bool matched;
+            lock (_tabLock)
+            {
+                _currentTab = tabInfo;
+                matched = CheckTabAgainstPatterns(tabInfo, _allPatterns);
+            }
+
+            System.Diagnostics.Debug.WriteLine(
+                $"[Nudge] Tab update: active={tabInfo.Active}, matched={matched}, title=\"{tabInfo.Title}\", url=\"{tabInfo.Url}\"");
+
+            // Send match result back to the extension
+            if (ws.State == WebSocketState.Open)
+            {
+                var response = JsonSerializer.Serialize(new { matched }, JsonOptions);
+                var responseBytes = Encoding.UTF8.GetBytes(response);
+                await ws.SendAsync(
+                    new ArraySegment<byte>(responseBytes),
+                    WebSocketMessageType.Text,
+                    true, ct).ConfigureAwait(false);
             }
         }
         catch (JsonException ex)
@@ -282,6 +329,34 @@ public class ChromeTabMonitor : IDisposable
             System.Diagnostics.Debug.WriteLine(
                 $"[Nudge] Failed to parse tab message: {ex.Message}");
         }
+        catch (WebSocketException ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[Nudge] Failed to send match response: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Checks whether a tab matches any of the given patterns.
+    /// Must be called under _tabLock if accessing shared pattern list.
+    /// </summary>
+    private bool CheckTabAgainstPatterns(TabInfo tab, List<string> patterns)
+    {
+        if (!tab.Active || patterns.Count == 0)
+            return false;
+
+        foreach (var pattern in patterns)
+        {
+            var regex = GetOrCreateRegex(pattern);
+
+            if ((!string.IsNullOrEmpty(tab.Title) && regex.IsMatch(tab.Title))
+                || (!string.IsNullOrEmpty(tab.Url) && regex.IsMatch(tab.Url)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
