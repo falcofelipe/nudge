@@ -46,9 +46,11 @@ $dotnet = "C:\Users\falcof\AppData\Local\dotnet-sdk\dotnet.exe"
 & $dotnet run --project src/Nudge
 
 # Publish standalone exe (uses bare `dotnet` internally, so set DOTNET_ROOT first)
+# IMPORTANT: Nudge.exe locks the file while running. Always kill it before publishing.
+Stop-Process -Name Nudge -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1
 $env:DOTNET_ROOT = "C:\Users\falcof\AppData\Local\dotnet-sdk"
 & $dotnet publish src/Nudge -c Release -o ./publish
-# Then copy config: Copy-Item -Recurse -Force .\config .\publish\config
+# Then copy config: Copy-Item -Force .\config\config.example.json .\publish\config\
 
 # Or use the publish script (same DOTNET_ROOT workaround needed):
 $env:DOTNET_ROOT = "C:\Users\falcof\AppData\Local\dotnet-sdk"

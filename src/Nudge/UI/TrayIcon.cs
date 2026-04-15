@@ -12,6 +12,9 @@ public class TrayIcon : IDisposable
     private readonly NotifyIcon _notifyIcon;
     private readonly ConfigManager _configManager;
     private readonly Func<Dictionary<string, AppTimeState>> _getActiveStates;
+    private readonly Icon _defaultIcon;
+    private readonly Icon _activeIcon;
+    private bool _isShowingActiveIcon;
     private bool _disposed;
 
     /// <summary>
@@ -24,10 +27,13 @@ public class TrayIcon : IDisposable
         _configManager = configManager;
         _getActiveStates = getActiveStates;
 
+        _defaultIcon = CreateTrayIcon(Color.FromArgb(255, 180, 50)); // orange N
+        _activeIcon = CreateTrayIcon(Color.FromArgb(80, 220, 80));   // green N
+
         _notifyIcon = new NotifyIcon
         {
             Text = "Nudge - App Time Tracker",
-            Icon = CreateDefaultIcon(),
+            Icon = _defaultIcon,
             Visible = true,
             ContextMenuStrip = CreateContextMenu()
         };
@@ -49,14 +55,28 @@ public class TrayIcon : IDisposable
         try
         {
             var text = "Nudge - App Time Tracker";
-            if (activeApp != null && minutes.HasValue)
+            var isActive = activeApp != null && minutes.HasValue;
+
+            if (isActive)
             {
-                var timeStr = FormatMinutes(minutes.Value);
+                var timeStr = FormatMinutes(minutes!.Value);
                 text = $"Nudge | {activeApp}: {timeStr}";
             }
 
             // NotifyIcon.Text has a 127-char limit
             _notifyIcon.Text = text.Length > 127 ? text[..127] : text;
+
+            // Swap tray icon: green when any tracked app is active, orange when idle
+            if (isActive && !_isShowingActiveIcon)
+            {
+                _notifyIcon.Icon = _activeIcon;
+                _isShowingActiveIcon = true;
+            }
+            else if (!isActive && _isShowingActiveIcon)
+            {
+                _notifyIcon.Icon = _defaultIcon;
+                _isShowingActiveIcon = false;
+            }
         }
         catch
         {
@@ -107,46 +127,7 @@ public class TrayIcon : IDisposable
 
     private void ShowStatus()
     {
-        var states = _getActiveStates();
-        var config = _configManager.Config;
-
-        var lines = new List<string> { "=== Nudge Status ===", "" };
-
-        if (config.TrackedApps.Count == 0)
-        {
-            lines.Add("No apps configured for tracking.");
-        }
-        else
-        {
-            foreach (var app in config.TrackedApps)
-            {
-                var enabledStr = app.Enabled ? "ON" : "OFF";
-                var line = $"  {app.Name} [{enabledStr}]";
-
-                if (states.TryGetValue(app.Name, out var state))
-                {
-                    var timeStr = FormatMinutes(state.AccumulatedMinutes);
-                    var activeStr = state.SessionStartUtc != null ? " (ACTIVE)" : "";
-                    line += $" - {timeStr}{activeStr}";
-                }
-                else
-                {
-                    line += " - No usage today";
-                }
-
-                lines.Add(line);
-            }
-        }
-
-        lines.Add("");
-        lines.Add($"Day boundary: {config.GlobalSettings.DayBoundaryHour}:00 AM");
-        lines.Add($"Polling interval: {config.GlobalSettings.PollingIntervalMs}ms");
-
-        MessageBox.Show(
-            string.Join("\n", lines),
-            "Nudge - Status",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Information);
+        StatusForm.ShowInstance(_configManager, _getActiveStates);
     }
 
     private void OpenConfig()
@@ -205,9 +186,9 @@ public class TrayIcon : IDisposable
     }
 
     /// <summary>
-    /// Creates a simple colored icon programmatically (no .ico file needed).
+    /// Creates a tray icon with the "N" letter in the specified color.
     /// </summary>
-    private static Icon CreateDefaultIcon()
+    private static Icon CreateTrayIcon(Color letterColor)
     {
         var bitmap = new Bitmap(32, 32);
         using var g = Graphics.FromImage(bitmap);
@@ -217,9 +198,9 @@ public class TrayIcon : IDisposable
         using var bgBrush = new SolidBrush(Color.FromArgb(40, 40, 40));
         g.FillEllipse(bgBrush, 1, 1, 30, 30);
 
-        // Orange "N" letter
+        // Colored "N" letter
         using var font = new Font("Segoe UI", 18, FontStyle.Bold);
-        using var textBrush = new SolidBrush(Color.FromArgb(255, 180, 50));
+        using var textBrush = new SolidBrush(letterColor);
         var textSize = g.MeasureString("N", font);
         var x = (32 - textSize.Width) / 2;
         var y = (32 - textSize.Height) / 2;

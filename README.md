@@ -66,7 +66,7 @@ dotnet publish src/Nudge -c Release -o ./publish
 On first launch, Nudge will:
 1. Copy `config/config.example.json` to `config/config.json` if no config exists yet
 2. Show a balloon notification confirming it's running in the background
-3. Appear in your system tray as an orange "N" icon
+3. Appear in your system tray as an orange "N" icon (turns green when any tracked app is active)
 4. Start monitoring configured apps
 
 Your `config/config.json` is gitignored so it won't be overwritten by pulls. To pick up new example config changes after updating, compare your config against `config.example.json` manually.
@@ -282,15 +282,19 @@ Override schedules are **merged** with the default:
 
 Right-click the orange "N" tray icon for:
 
-- **Status** - Shows all tracked apps, their enabled state, and today's accumulated time
+- **Status** - Opens a live-updating status window showing all tracked apps, their enabled state, active status (green dot), and today's accumulated time. Updates every second in real time. Double-click the tray icon to open it too
 - **Open Config** - Opens `config.json` in your default editor
 - **Open Config Folder** - Opens the config directory in Explorer
 - **Start with Windows** - Toggle auto-start on login (checkable; persists to config and updates the registry immediately). Only registers the registry key when running as a published exe; in dev mode it saves the preference but shows a tooltip warning
 - **Exit** - Shuts down Nudge (with confirmation dialog if enabled)
 
-Double-click the tray icon to open the status view.
+Double-click the tray icon to open the status window.
 
-The tray icon tooltip shows the currently active tracked app and its time.
+The tray icon changes color to indicate tracking state:
+- **Orange "N"** - Default/idle, no tracked apps are currently active
+- **Green "N"** - At least one tracked app is actively counting time
+
+The tray icon tooltip also shows the currently active tracked app and its time.
 
 ## Usage Logs
 
@@ -361,7 +365,8 @@ src/Nudge/
 │   ├── ToastNotifier.cs    # Windows toast notifications
 │   └── ModalWarning.cs     # Topmost WinForms dialog (Win32 P/Invoke)
 ├── UI/
-│   └── TrayIcon.cs         # System tray icon + context menu
+│   ├── TrayIcon.cs         # System tray icon + context menu + dynamic icon color
+│   └── StatusForm.cs       # Live-updating status window (refreshes every second)
 └── Logging/
     └── UsageLogger.cs      # CSV event logging
 
