@@ -78,6 +78,16 @@ PATH cannot be permanently fixed (company-managed machine with limited access).
 - `ConfigManager` handles hot-reload -- new config fields must be added to the appropriate model class and the JSON schema
 - All Win32 P/Invoke declarations should use `[LibraryImport]` or `[DllImport]` with clear comments explaining the Win32 function
 
+### WinForms UI Layout Rules
+When creating or modifying WinForms UI (forms, dialogs, panels):
+1. **Avoid deeply nested layout containers.** `TableLayoutPanel` and `FlowLayoutPanel` have compounding margin/padding behavior that causes clipping. Prefer flat `Panel > Controls` with `Anchor` for right/bottom-aligned elements.
+2. **`Height` vs `ClientSize.Height`**: `Form.Height` includes the title bar (~39px). Always calculate *client area* needed and convert: `Height = desiredClientHeight + (Height - ClientSize.Height)`.
+3. **`Margin` is ignored on docked controls** inside plain `Panel` containers. Margins only take effect inside `TableLayoutPanel` or `FlowLayoutPanel`. If you need spacing between docked controls, bake it into the control's `Height` directly.
+4. **Use named constants for all spacing values** (`ContentTop`, `RowHeight`, `FooterHeight`, etc.) and reference them in *both* the control positioning *and* the form sizing formula. Never use separate literal values that must be kept in sync manually.
+5. **`AutoScroll = true` reserves scrollbar gutter space** even when content fits. Only enable it when overflow is genuinely expected.
+6. **Use `Anchor` for responsive positioning** (e.g., `AnchorStyles.Top | AnchorStyles.Right` for right-aligned labels) instead of hardcoded pixel coordinates captured at construction time.
+7. **When changing any spacing constant, trace the full sizing chain**: control positions, panel sizes, form height calculation, and verify they all use the same constants.
+
 ### Config Model Pattern
 When adding new configuration options:
 1. Add the property to the appropriate model class in `Config/`
