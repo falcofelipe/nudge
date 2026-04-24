@@ -280,7 +280,7 @@ Files to modify: `AppSource.cs` (add TabPatterns), `GlobalSettings.cs` (add Brow
 - Consider Firefox support later (WebExtensions API is similar)
 
 #### 5. Post-Limit Recurring Warnings
-**Complexity:** Easy | **Priority:** High | **Status:** Planned
+**Complexity:** Easy | **Priority:** High | **Status:** Done
 
 When auto-close is disabled and all warning milestones have fired, re-fire the last milestone's warning as a modal every N minutes until the user closes the app. Currently, once the last milestone fires, nothing else happens -- the user can keep using the app indefinitely with no further nudges.
 

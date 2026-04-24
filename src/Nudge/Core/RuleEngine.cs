@@ -99,6 +99,57 @@ public class RuleEngine
     }
 
     /// <summary>
+    /// Determines if a post-limit recurring warning should fire.
+    /// Returns true when: all milestones have been fired, auto-close is disabled/null,
+    /// postLimitRepeatIntervalMinutes is set and > 0, and enough time has passed since
+    /// the last post-limit warning (or the last milestone, whichever was more recent).
+    /// </summary>
+    public bool ShouldFirePostLimitWarning(
+        DaySchedule schedule,
+        double accumulatedMinutes,
+        HashSet<int> firedMilestoneMinutes,
+        double? lastPostLimitWarningMinutes)
+    {
+        // Only activate when auto-close is disabled or not configured
+        var autoClose = schedule.AutoClose;
+        if (autoClose != null && autoClose.Enabled)
+            return false;
+
+        // Must have a positive repeat interval configured
+        var interval = schedule.PostLimitRepeatIntervalMinutes;
+        if (interval == null || interval <= 0)
+            return false;
+
+        // Must have milestones to check against
+        if (schedule.WarningMilestones.Count == 0)
+            return false;
+
+        // All milestones must have been fired
+        var allMilestoneMinutes = schedule.WarningMilestones.Select(m => m.AfterMinutes).ToHashSet();
+        if (!allMilestoneMinutes.IsSubsetOf(firedMilestoneMinutes))
+            return false;
+
+        // Determine the anchor point: the last post-limit warning time,
+        // or the last milestone's AfterMinutes if no post-limit warning has fired yet
+        var lastMilestoneMinutes = schedule.WarningMilestones.Max(m => m.AfterMinutes);
+        var anchor = lastPostLimitWarningMinutes ?? lastMilestoneMinutes;
+
+        return accumulatedMinutes >= anchor + interval.Value;
+    }
+
+    /// <summary>
+    /// Gets the last (highest AfterMinutes) warning milestone from a schedule.
+    /// Returns null if there are no milestones.
+    /// </summary>
+    public WarningMilestone? GetLastMilestone(DaySchedule schedule)
+    {
+        if (schedule.WarningMilestones.Count == 0)
+            return null;
+
+        return schedule.WarningMilestones.OrderByDescending(m => m.AfterMinutes).First();
+    }
+
+    /// <summary>
     /// Returns the remaining minutes before auto-close, or null if auto-close is not enabled.
     /// </summary>
     public double? GetMinutesUntilAutoClose(DaySchedule schedule, double accumulatedMinutes)
@@ -122,7 +173,10 @@ public class RuleEngine
                 ? overrideSchedule.WarningMilestones
                 : defaultSchedule.WarningMilestones,
 
-            AutoClose = overrideSchedule.AutoClose ?? defaultSchedule.AutoClose
+            AutoClose = overrideSchedule.AutoClose ?? defaultSchedule.AutoClose,
+
+            PostLimitRepeatIntervalMinutes = overrideSchedule.PostLimitRepeatIntervalMinutes
+                ?? defaultSchedule.PostLimitRepeatIntervalMinutes
         };
     }
 }

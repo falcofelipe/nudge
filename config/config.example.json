@@ -35,7 +35,8 @@
             "afterMinutes": 5,
             "preCloseWarningMinutes": 1,
             "gracefulClose": true
-          }
+          },
+          "postLimitRepeatIntervalMinutes": 5
         },
         "overrides": {},
         "specialDates": []

@@ -184,6 +184,14 @@ public class NudgeEngine : IDisposable
                 _timeTracker.MarkMilestoneFired(app.Name, warning.AfterMinutes);
             }
 
+            // Check post-limit recurring warning (fires after all milestones, when auto-close is off)
+            if (_ruleEngine.ShouldFirePostLimitWarning(
+                    schedule, timeState.AccumulatedMinutes,
+                    timeState.FiredMilestoneMinutes, timeState.LastPostLimitWarningMinutes))
+            {
+                FirePostLimitWarning(app, timeState, schedule);
+            }
+
             // Check pre-close warning
             if (_ruleEngine.ShouldSendPreCloseWarning(
                     schedule, timeState.AccumulatedMinutes, timeState.PreCloseWarningSent))
@@ -268,6 +276,14 @@ public class NudgeEngine : IDisposable
                 _timeTracker.MarkMilestoneFired(app.Name, warning.AfterMinutes);
             }
 
+            // Check post-limit recurring warning (fires after all milestones, when auto-close is off)
+            if (_ruleEngine.ShouldFirePostLimitWarning(
+                    schedule, timeState.AccumulatedMinutes,
+                    timeState.FiredMilestoneMinutes, timeState.LastPostLimitWarningMinutes))
+            {
+                FirePostLimitWarning(app, timeState, schedule);
+            }
+
             // Check pre-close warning
             if (_ruleEngine.ShouldSendPreCloseWarning(
                     schedule, timeState.AccumulatedMinutes, timeState.PreCloseWarningSent))
@@ -330,6 +346,28 @@ public class NudgeEngine : IDisposable
 
         System.Diagnostics.Debug.WriteLine(
             $"[Nudge] Warning fired for {app.Name}: {warning.Message} ({warning.Type})");
+    }
+
+    /// <summary>
+    /// Fires a post-limit recurring warning as a modal dialog using the last milestone's message.
+    /// </summary>
+    private void FirePostLimitWarning(TrackedApp app, AppTimeState timeState, DaySchedule schedule)
+    {
+        var lastMilestone = _ruleEngine.GetLastMilestone(schedule);
+        if (lastMilestone == null)
+            return;
+
+        // Always fire as modal, regardless of the original milestone's type
+        _modalWarning.ShowWarning(app.Name, lastMilestone.Message,
+            timeState.AccumulatedMinutes, minutesUntilClose: null);
+
+        _timeTracker.UpdatePostLimitWarningTime(app.Name, timeState.AccumulatedMinutes);
+
+        _usageLogger.LogEvent(app.Name, "warning_modal_recurring",
+            $"Post-limit repeat at {timeState.AccumulatedMinutes:F1}min - {lastMilestone.Message}");
+
+        System.Diagnostics.Debug.WriteLine(
+            $"[Nudge] Post-limit recurring warning fired for {app.Name}: {lastMilestone.Message}");
     }
 
     private void OnConfigReloaded(object? sender, NudgeConfig newConfig)

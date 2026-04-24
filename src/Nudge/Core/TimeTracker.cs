@@ -46,7 +46,8 @@ public class TimeTracker
                     AccumulatedMinutes = 0,
                     FiredMilestoneMinutes = new HashSet<int>(),
                     PreCloseWarningSent = false,
-                    SessionStartUtc = null
+                    SessionStartUtc = null,
+                    LastPostLimitWarningMinutes = null
                 };
                 _appStates[appName] = state;
                 SaveState();
@@ -122,6 +123,17 @@ public class TimeTracker
     {
         var state = GetState(appName);
         state.PreCloseWarningSent = true;
+        SaveState();
+    }
+
+    /// <summary>
+    /// Updates the post-limit warning time to the current accumulated minutes.
+    /// Called when a recurring post-limit warning is fired.
+    /// </summary>
+    public void UpdatePostLimitWarningTime(string appName, double accumulatedMinutes)
+    {
+        var state = GetState(appName);
+        state.LastPostLimitWarningMinutes = accumulatedMinutes;
         SaveState();
     }
 
@@ -214,4 +226,10 @@ public class AppTimeState
     /// When the current continuous session started (null if app is not currently active).
     /// </summary>
     public DateTime? SessionStartUtc { get; set; }
+
+    /// <summary>
+    /// The accumulated minutes value when the last post-limit recurring warning was shown.
+    /// Null means no post-limit warning has been fired yet today.
+    /// </summary>
+    public double? LastPostLimitWarningMinutes { get; set; }
 }

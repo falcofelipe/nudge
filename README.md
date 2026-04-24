@@ -16,6 +16,7 @@ A Windows system tray app that monitors app usage, sends time-based warnings, an
 - **Usage logging** - CSV logs for tracking patterns over time
 - **Exit friction** - Confirmation dialog before quitting to prevent impulsive disabling
 - **Browser tab tracking** - Track time on specific browser tab content (by title/URL patterns) via a Chrome extension and local WebSocket
+- **Post-limit recurring warnings** - When auto-close is off and all milestones have fired, repeating modal warnings every N minutes keep nudging you
 - **Auto-start with Windows** - Optional registry-based auto-start on login, toggleable from the tray menu
 
 ## Requirements
@@ -224,7 +225,8 @@ Each app has a schedule with four layers (highest priority first):
           { "afterMinutes": 60, "type": "toast", "message": "1 hour on the weekend" },
           { "afterMinutes": 120, "type": "modal", "message": "2 hours - enjoy but stay aware!" }
         ],
-        "autoClose": { "enabled": false }
+         "autoClose": { "enabled": false },
+        "postLimitRepeatIntervalMinutes": 10
       }
     },
     "specialDates": [
@@ -260,6 +262,16 @@ Each milestone fires **once per tracking day**. They reset at the configured day
 | `preCloseWarningMinutes` | int/null | Show a warning N minutes before closing. `null` or `0` = no warning |
 | `gracefulClose` | bool | Try `CloseMainWindow()` before `Kill()`. Gives the app a chance to save |
 
+#### Post-Limit Recurring Warnings
+
+When auto-close is disabled and all warning milestones have fired, Nudge can continue nudging you with recurring modal warnings every N minutes.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `postLimitRepeatIntervalMinutes` | int/null | `null` | Minutes between recurring modal warnings after all milestones have fired. `null` or `0` = no recurring warnings |
+
+The recurring warning re-uses the **last milestone's message** (by `afterMinutes` order) and always fires as a **modal** dialog, regardless of the original milestone's type. This setting is ignored when auto-close is enabled (the app will be killed, so recurring warnings are pointless).
+
 #### Day-of-Week Overrides
 
 Use lowercase day names as keys: `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`, `sunday`.
@@ -269,6 +281,7 @@ You can also use `"weekend"` as a convenience key that applies to both Saturday 
 Override schedules are **merged** with the default:
 - If the override specifies `warningMilestones`, those replace the default milestones
 - If the override specifies `autoClose`, it replaces the default auto-close
+- If the override specifies `postLimitRepeatIntervalMinutes`, it replaces the default value
 - Unspecified fields inherit from the default
 
 ### Notification Types
@@ -391,6 +404,5 @@ browser-extension/chrome/   # Chrome extension for browser tab tracking
 
 Detailed implementation plans are in `AGENTS.md` under "Future Plans". Priority features:
 
-- **Post-limit recurring warnings** -- Modal warnings repeat every N minutes after all milestones fire (when auto-close is off)
 - **Weekly bonus time** -- A shared weekly pool of extra minutes the user can consciously spend to extend time limits
 - **Settings UI** -- WinForms settings window to replace manual JSON editing, with "copy schedule" between apps
