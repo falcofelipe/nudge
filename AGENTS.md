@@ -33,11 +33,11 @@ Key namespaces: `Nudge`, `Nudge.Core`, `Nudge.Config`, `Nudge.Notifications`, `N
 
 ## Build & Run Commands
 
-**IMPORTANT - .NET SDK PATH issue**: This machine has two dotnet installs. The one in `C:\Program Files\dotnet\` is runtime-only (no SDK) and appears first in PATH, shadowing the actual SDK. The bare `dotnet` command will fail with "No .NET SDKs were found". Always use the full path to the SDK install instead:
+**IMPORTANT - .NET SDK PATH issue**: This machine has two dotnet installs. The one in `C:\Program Files\dotnet\` is runtime-only (no SDK) and appears first in the system PATH, shadowing the actual SDK. The bare `dotnet` command will fail with "No .NET SDKs were found". Always use the full path to the SDK install instead:
 
 ```powershell
-# The correct dotnet executable with SDK 8.0:
-$dotnet = "C:\Users\falcof\AppData\Local\dotnet-sdk\dotnet.exe"
+# The correct dotnet executable with SDK 10.0:
+$dotnet = "C:\Users\falcof\dotnet-sdk-10.0.203-win-x64\dotnet.exe"
 
 # Build
 & $dotnet build
@@ -48,16 +48,16 @@ $dotnet = "C:\Users\falcof\AppData\Local\dotnet-sdk\dotnet.exe"
 # Publish standalone exe (uses bare `dotnet` internally, so set DOTNET_ROOT first)
 # IMPORTANT: Nudge.exe locks the file while running. Always kill it before publishing.
 Stop-Process -Name Nudge -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1
-$env:DOTNET_ROOT = "C:\Users\falcof\AppData\Local\dotnet-sdk"
+$env:DOTNET_ROOT = "C:\Users\falcof\dotnet-sdk-10.0.203-win-x64"
 & $dotnet publish src/Nudge -c Release -o ./publish
 # Then copy config: Copy-Item -Force .\config\config.example.json .\publish\config\
 
 # Or use the publish script (same DOTNET_ROOT workaround needed):
-$env:DOTNET_ROOT = "C:\Users\falcof\AppData\Local\dotnet-sdk"
+$env:DOTNET_ROOT = "C:\Users\falcof\dotnet-sdk-10.0.203-win-x64"
 .\publish.ps1
 ```
 
-PATH cannot be permanently fixed (company-managed machine with limited access).
+PATH cannot be permanently fixed (company-managed machine with limited admin access). The SDK lives at `C:\Users\falcof\dotnet-sdk-10.0.203-win-x64\` (user-installed .NET 10 SDK binary).
 
 ## Project Conventions
 
